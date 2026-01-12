@@ -1,0 +1,3 @@
+[submodule = "robot/frc-3117-tools-python"]
+    path = robot/frc-3117-tools-python
+    url = https://github.com/frc3117/frc-3117-tools-python.git
