@@ -1,3 +1,4 @@
 -e ./frc-3117-tools-python
 robotpy==2026.1.1
-robotpy-rev
+robotpy-rev==2026.0.1
+photonlibpy==2026.1.1rc3
