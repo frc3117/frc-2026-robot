@@ -44,6 +44,7 @@ class RobotPoseEstimator(Component):
 
     __initial_pose: Pose2d
     __current_pose: Pose2d
+    __current_velocity: Vector2
 
     __pose_estimator_logic_coroutine: Coroutine
 
@@ -69,7 +70,8 @@ class RobotPoseEstimator(Component):
                 camera.apply_vision_pose_estimate(self.__swerve_pose_estimator)
 
             self.__current_pose = self.__swerve_pose_estimator.update(self.__swerve.get_gyro_angle2d(), self.__swerve.get_modules_positions4())
-            self.__swerve_pose_estimator.resetPosition()
 
     def get_current_pose(self) -> Pose2d:
         return self.__current_pose
+    def set_current_pose(self, pose: Pose2d):
+        self.__swerve_pose_estimator.resetPosition(self.__swerve.get_gyro_angle2d(), self.__swerve.get_modules_positions4(), pose)
