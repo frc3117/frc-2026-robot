@@ -1,0 +1,15 @@
+[tool.robotpy]
+robotpy_version = "2026.1.1"
+components = [
+    # "all",
+    "apriltag",
+    # "commands2",
+    # "cscore",
+    # "romi",
+    "sim",
+    # "xrp",
+]
+requires = [
+    "numpy",
+    "frctools -e git+https://github.com/frc3117/frc-3117-tools-python.git@c9cfd5b09859e9e2f3c500491e697eb3fdb3af1e#egg=frctools&subdirectory=../../../robot/frc-3117-tools-python"
+]
