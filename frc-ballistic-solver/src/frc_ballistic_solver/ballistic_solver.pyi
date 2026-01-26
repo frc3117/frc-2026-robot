@@ -54,11 +54,6 @@ class Vector3:
     @overload
     def __div__(self, other: int) -> Vector3: ...
 
-    #def __str__(self):
-    #    return f'({self.x}, {self.y}, {self.z})'
-    #def __repr__(self):
-    #    return f'Vector3(x={self.x:.4}, y={self.y:.4}, z={self.z:.4})'
-
 
 class BallisticSolution:
     valid: bool

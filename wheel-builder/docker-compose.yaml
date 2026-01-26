@@ -1,0 +1,13 @@
+services:
+  build-rio:
+    image: wpilib/roborio-cross-ubuntu:2026-22.04-py314
+    profiles: [rio]
+
+    volumes:
+      # - "./frc-3117-tools-python:/packages/frc-3117-tools-python"
+      - "../frc-ballistic-solver:/packages/frc-ballistic-solver"
+      - "../robot/whl:/whl"
+      - './scripts/build-entrypoint.sh:/packages/build-entrypoint.sh'
+
+    working_dir: "/packages"
+    entrypoint: "/bin/bash build-entrypoint.sh"
