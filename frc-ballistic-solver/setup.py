@@ -15,9 +15,9 @@ setup(
     version="0.0.1",
     ext_modules=ext_modules,
     package_dir={'': 'src'},
-    packages=find_packages(),
+    packages=find_packages(where="src"),
     include_package_data=True,
     package_data={
-        "frc_ballistic_solver": ["*.pyi", "py.typed"]
+        "frc_ballistic_solver": ["*.pyi", "py.typed", "**/*.pyi"]
     }
 )

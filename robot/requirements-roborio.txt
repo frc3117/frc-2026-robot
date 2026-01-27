@@ -1,1 +1,5 @@
-whl/frc_ballistic_solver-0.0.1-cp314-cp314-linux_roborio.whl
+--find-links=whl
+--prefer-binary
+
+# Wheels
+frc_ballistic_solver
