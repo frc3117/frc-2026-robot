@@ -43,6 +43,7 @@ class ShiftState(IntFlag):
             case _:
                 return ShiftState.NONE
 
+
 class Shift:
     __IS_INITIALIZED__: bool = False
     __SHIFTS__: Dict[ShiftPeriod, 'Shift']
@@ -100,6 +101,7 @@ class Shift:
             ShiftPeriod.FOURTH: Shift(ShiftPeriod.FOURTH, 55., 30.),
             ShiftPeriod.ENDGAME: Shift(ShiftPeriod.ENDGAME, 30., 0.)
         }
+
 
 class CurrentShiftInfo:
     current_shift: Shift

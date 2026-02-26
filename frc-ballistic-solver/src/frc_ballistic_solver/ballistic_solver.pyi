@@ -55,6 +55,41 @@ class Vector3:
     def __div__(self, other: int) -> Vector3: ...
 
 
+class Projectile:
+    OBJ_AREA: float
+    OBJ_MASS: float
+    OBJ_MOMENT_INERTIA: float
+    AIR_DENSITY: float
+    DRAG_COEF: float
+
+    def __init__(self,
+                 obj_area: float,
+                 obj_mass: float,
+                 obj_moment_inertia: float,
+                 air_density: float = 1.293,
+                 drag_coef: float = 0.47): ...
+
+
+class BallisticSimState:
+    time: float
+
+    position: Vector3
+    rotation: Vector3
+
+    linear_velocity: Vector3
+    angular_velocity: Vector3
+
+
+class BallisticSimulator:
+    def __init__(self,
+                 projectile: Projectile,
+                 initial_state: BallisticSimState,
+                 dt: float,
+                 gravity: Vector3 = Vector3(0., 0., -9.81)): ...
+
+    def do_step(self) -> BallisticSimState: ...
+
+
 class BallisticSolution:
     valid: bool
     time: float

@@ -72,6 +72,10 @@ struct Vector3 {
         return (this->x * other.x) + (this->y * other.y) + (this->z * other.z);
     }
 
+    Vector3 normalized() {
+        return *this / this->magnitude();
+    }
+
     std::string format(const std::string& spec) const {
         py::object py_format = py::module::import("builtins").attr("format");
         return py::str("(x={0}, y={1}, z={2})").format(
@@ -108,6 +112,27 @@ struct Vector3 {
             lhs.z + rhs
         );
     }
+    Vector3& operator+=(const Vector3& rhs) {
+        this->x += rhs.x;
+        this->y += rhs.y;
+        this->z += rhs.z;
+
+        return *this;
+    }
+    Vector3& operator+=(const float& rhs) {
+        this->x += rhs;
+        this->y += rhs;
+        this->z += rhs;
+
+        return *this;
+    }
+    Vector3& operator+=(const int& rhs) {
+        this->x += rhs;
+        this->y += rhs;
+        this->z += rhs;
+
+        return *this;
+    }
 
     friend Vector3 operator-(Vector3 lhs, const Vector3& rhs) {
         return Vector3(
@@ -129,6 +154,27 @@ struct Vector3 {
             lhs.y - rhs,
             lhs.z - rhs
         );
+    }
+    Vector3& operator-=(const Vector3& rhs) {
+        this->x -= rhs.x;
+        this->y -= rhs.y;
+        this->z -= rhs.z;
+
+        return *this;
+    }
+    Vector3& operator-=(const float& rhs) {
+        this->x -= rhs;
+        this->y -= rhs;
+        this->z -= rhs;
+
+        return *this;
+    }
+    Vector3& operator-=(const int& rhs) {
+        this->x -= rhs;
+        this->y -= rhs;
+        this->z -= rhs;
+
+        return *this;
     }
 
     friend Vector3 operator*(Vector3 lhs, const Vector3& rhs) {
@@ -152,6 +198,27 @@ struct Vector3 {
             lhs.z * rhs
         );
     }
+    Vector3& operator*=(const Vector3& rhs) {
+        this->x *= rhs.x;
+        this->y *= rhs.y;
+        this->z *= rhs.z;
+
+        return *this;
+    }
+    Vector3& operator*=(const float& rhs) {
+        this->x *= rhs;
+        this->y *= rhs;
+        this->z *= rhs;
+
+        return *this;
+    }
+    Vector3& operator*=(const int& rhs) {
+        this->x *= rhs;
+        this->y *= rhs;
+        this->z *= rhs;
+
+        return *this;
+    }
 
     friend Vector3 operator/(Vector3 lhs, const Vector3& rhs) {
         return Vector3(
@@ -174,6 +241,149 @@ struct Vector3 {
             lhs.z / rhs
         );
     }
+    Vector3& operator/=(const Vector3& rhs) {
+        this->x /= rhs.x;
+        this->y /= rhs.y;
+        this->z /= rhs.z;
+
+        return *this;
+    }
+    Vector3& operator/=(const float& rhs) {
+        this->x /= rhs;
+        this->y /= rhs;
+        this->z /= rhs;
+
+        return *this;
+    }
+    Vector3& operator/=(const int& rhs) {
+        this->x /= rhs;
+        this->y /= rhs;
+        this->z /= rhs;
+
+        return *this;
+    }
+};
+struct Quaternion {
+    public:
+    Quaternion()
+    {
+        this->x = 0.0f;
+        this->y = 0.0f;
+        this->z = 0.0f;
+        this->w = 0.0f;
+    }
+    Quaternion(float x, float y, float z, float w)
+    {
+        this->x = x;
+        this->y = y;
+        this->z = z;
+        this->w = w;
+    }
+
+    float x;
+    float y;
+    float z;
+    float w;
+
+    static Quaternion identity()
+    {
+        return Quaternion(0.0f, 0.0f, 0.0f, 1.0f);
+    }
+};
+
+struct Projectile {
+    public:
+    Projectile() {};
+    Projectile(float objArea,
+               float objMass,
+               float objMomentInertia,
+               float airDensity = 1.293f,
+               float dragCoef = 0.47f) :
+                    kObjArea(objArea),
+                    kObjMass(objMass),
+                    kObjMomentInertia(objMomentInertia),
+                    kAirDensity(airDensity),
+                    kDragCoef(dragCoef) {
+        this->kCDARho = objArea * airDensity * dragCoef;
+    }
+
+    float kObjArea;
+    float kObjMass;
+    float kObjMomentInertia;
+    float kAirDensity;
+    float kDragCoef;
+    float kCDARho;
+
+    Vector3 computeAccel(Vector3 projVel, Vector3 gravity) {
+        float speed = projVel.magnitude();
+        return gravity - projVel * this->kCDARho * speed;
+    }
+};
+
+struct BallisticSimState {
+    public:
+    float time;
+    Vector3 position;
+    Vector3 rotation;
+
+    Vector3 linearVelocity;
+    Vector3 angularVelocity;
+};
+class BallisticSimulator {
+    public:
+    BallisticSimulator(Projectile projectile,
+                       BallisticSimState initialState,
+                       float dt,
+                       Vector3 gravity = Vector3(0.0f, 0.0f, -9.81f)) {
+        this->projectile = projectile;
+        this->currentState = initialState;
+        this->dt = dt;
+        this->gravity = gravity;
+    }
+
+    BallisticSimState doStep() {
+        Vector3 forceSum = Vector3(0.0f, 0.0f, 0.0f);
+        Vector3 torqueSum = Vector3(0.0f, 0.0f, 0.0f);
+
+        float v = this->currentState.linearVelocity.magnitude();
+
+        // Air Drag
+        Vector3 aeroDragForce = this->currentState.linearVelocity / -v;
+        aeroDragForce *= 0.5f * (v*v) * this->projectile.kCDARho;
+
+        forceSum += aeroDragForce;
+
+        // Magnus Effect
+
+        this->currentState = eulerIntegrator(forceSum, torqueSum);
+        return this->currentState;
+    }
+
+    private:
+    Projectile projectile;
+    BallisticSimState currentState;
+    float dt;
+    Vector3 gravity;
+
+    BallisticSimState eulerIntegrator(Vector3 force, Vector3 torque) {
+        BallisticSimState nextState;
+        nextState.time = this->currentState.time + this->dt;
+
+        // Linear
+        Vector3 linAccel = this->gravity + (force / this->projectile.kObjMass);
+        nextState.linearVelocity = this->currentState.linearVelocity + (linAccel * this->dt);
+        nextState.position = this->currentState.position + (nextState.linearVelocity * this->dt);
+
+        // Angular
+        Vector3 angAccel = torque / this->projectile.kObjMomentInertia;
+        nextState.angularVelocity = this->currentState.angularVelocity + (angAccel * this->dt);
+        nextState.rotation = this-> currentState.rotation + (nextState.angularVelocity * this->dt);
+
+        return nextState;
+    }
+    /*BallisticSimState rk4Integrator() {
+
+    }*/
 };
 
 struct BallisticSolution {
@@ -205,7 +415,6 @@ struct BallisticSolution {
         return "<BallisticSolution" + this->format(".3f") + ">";
     }
 };
-
 class BallisticSolver {
     public:
     BallisticSolver(Vector3 targetPos,
@@ -213,7 +422,7 @@ class BallisticSolver {
                     Range airtimeRange,
                     Vector3 impactConeAxis = Vector3(0.0f, 0.0f, -1.0f),
                     float impactConeTolerance = 0.785f,
-                    Vector3 gravity= Vector3(0.0f, 0.0f, -9.81f),
+                    Vector3 gravity = Vector3(0.0f, 0.0f, -9.81f),
                     int sampleCount = 15,
                     bool preferHighArc = true) {
         this->targetPos = targetPos;
@@ -304,6 +513,8 @@ class BallisticSolver {
     int sampleCount;
     bool preferHighArc;
 
+    float dragCoef;
+
     bool inCone(Vector3 impactDir) {
         return impactDir.dot(this->impactConeAxis) >= this->impactConeCosMax;
     }
@@ -314,6 +525,13 @@ class BallisticSolver {
         heading = std::atan2(aimDir.x, -aimDir.y);
         elevation = std::atan2(aimDir.z, horizontalMag);
     }
+
+    /*Vector3 quadraticDrag(Vector3 objVel) {
+    }
+
+    void stepRK4(Vector3 &objPos, Vector3 &objVel, float dt) {
+
+    }*/
 };
 
 PYBIND11_MODULE(_core, m) {
@@ -350,6 +568,35 @@ PYBIND11_MODULE(_core, m) {
         .def(py::self / py::self)
         .def(py::self / float())
         .def(py::self / int());
+
+    py::class_<Projectile>(m, "Projectile")
+        .def(py::init<float, float, float, float, float>(),
+                py::arg("obj_area"),
+                py::arg("obj_mass"),
+                py::arg("obj_moment_inertia"),
+                py::arg("air_density") = 1.293f,
+                py::arg("drag_coef") = 0.47f)
+        .def_readwrite("OBJ_AREA", &Projectile::kObjArea)
+        .def_readwrite("OBJ_MASS", &Projectile::kObjMass)
+        .def_readwrite("OBJ_MOMENT_INERTIA", &Projectile::kObjMomentInertia)
+        .def_readwrite("AIR_DENSITY", &Projectile::kAirDensity)
+        .def_readwrite("DRAG_COEF", &Projectile::kDragCoef);
+
+    py::class_<BallisticSimState>(m, "BallisticSimState")
+        .def(py::init<>())
+        .def_readwrite("time", &BallisticSimState::time)
+        .def_readwrite("position", &BallisticSimState::position)
+        .def_readwrite("rotation", &BallisticSimState::rotation)
+        .def_readwrite("linear_velocity", &BallisticSimState::linearVelocity)
+        .def_readwrite("angular_velocity", &BallisticSimState::angularVelocity);
+
+    py::class_<BallisticSimulator>(m, "BallisticSimulator")
+        .def(py::init<Projectile, BallisticSimState, float, Vector3>(),
+                py::arg("projectile"),
+                py::arg("initial_state"),
+                py::arg("dt"),
+                py::arg("gravity") = Vector3(0.0f, 0.0f, -9.81f))
+        .def("do_step", &BallisticSimulator::doStep);
 
     py::class_<BallisticSolution>(m, "BallisticSolution")
         .def(py::init<>())
