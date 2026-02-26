@@ -158,3 +158,6 @@ robot/simgui-window.json
 robot/simgui-ds.json
 robot/simgui.json
 robot/networktables.json
+
+# OSX
+.DS_STORE
