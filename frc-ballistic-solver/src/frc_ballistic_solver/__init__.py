@@ -4,6 +4,7 @@ from ._core import (Range,
                     BallisticSimState,
                     BallisticSimulator,
                     BallisticSolution,
+                    HybridBallisticSolver,
                     BallisticSolver)
 
 
@@ -14,5 +15,6 @@ __all__ = [
     'BallisticSimState',
     'BallisticSimulator',
     'BallisticSolution',
+    'HybridBallisticSolver',
     'BallisticSolver'
 ]

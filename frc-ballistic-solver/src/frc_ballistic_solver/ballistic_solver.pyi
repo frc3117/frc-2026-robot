@@ -10,6 +10,12 @@ class Range:
     @overload
     def __init__(self, min: float, max: float): ...
 
+    def lerp(self, t: float) -> float: ...
+    def between(self, v: float) -> bool: ...
+    def clamp(self, v: float) -> float: ...
+    def center(self) -> float: ...
+    def width(self) -> float: ...
+
 
 class Vector3:
     x: float
@@ -101,6 +107,23 @@ class BallisticSolution:
     elevation: float
     score: float
 
+
+class HybridBallisticSolver:
+    def __init__(self,
+                 target_pos: Vector3,
+                 speed_range: Range,
+                 airtime_range: Range,
+                 projectile: Projectile,
+                 impact_cone_axis: Vector3 = Vector3(0., 0., -1.),
+                 impact_cone_tolerance: float = 0.785,
+                 gravity: Vector3 = Vector3(0., 0., -9.81),
+                 sample_count: int = 15,
+                 prefer_high_arc: bool = True,
+                 refinement_passes: int = 3,
+                 convergence_threshold: float = 0.02,
+                 dt: float = 0.01): ...
+
+    def solve(self, shooter_pos: Vector3, shooter_world_vel) -> BallisticSolution: ...
 
 class BallisticSolver:
     def __init__(self,

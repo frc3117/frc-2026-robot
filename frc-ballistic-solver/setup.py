@@ -12,7 +12,7 @@ ext_modules = [
 
 setup(
     name="frc_ballistic_solver",
-    version="0.0.1",
+    version="0.0.2",
     ext_modules=ext_modules,
     package_dir={'': 'src'},
     packages=find_packages(where="src"),
