@@ -2,6 +2,10 @@ from frctools import Component, Timer, Coroutine, CoroutineOrder
 from frctools.drivetrain import SwerveDrive
 from frctools.frcmath import Vector2, Vector3
 
+
+import frc_ballistic_solver as ball
+
+
 from photonlibpy import PhotonPoseEstimator, PhotonCamera
 
 
@@ -12,6 +16,7 @@ from robotpy_apriltag import AprilTagFieldLayout, AprilTagField
 
 
 from typing import List
+from enum import IntEnum
 
 
 class PoseEstimationCamera:
@@ -75,3 +80,62 @@ class RobotPoseEstimator(Component):
         return self.__current_pose
     def set_current_pose(self, pose: Pose2d):
         self.__swerve_pose_estimator.resetPosition(self.__swerve.get_gyro_angle2d(), self.__swerve.get_modules_positions4(), pose)
+
+
+class RebuiltFieldZone(IntEnum):
+    DONT_SHOOT = -1
+    SHOOT_IN_HUB = 0
+    PASS_PREVIOUS = 1
+    PASS_LEFT = 2
+    PASS_RIGHT = 3,
+    PASS_CENTER_PREVIOUS = 4,
+
+
+class RebuiltField:
+    __BOTTOM__ = 0.
+    __TOP__ = 8.069326
+
+    __LEFT__ = 0.
+    __RIGHT__ = 16.540988
+
+    def __init__(self):
+        # Our side of the field
+        shoot_in_hub_zone = ball.FieldZone(RebuiltFieldZone.SHOOT_IN_HUB, [
+            ball.Vector2(self.__LEFT__, self.__BOTTOM__),
+            ball.Vector2(self.__LEFT__, self.__TOP__),
+            ball.Vector2(self.__LEFT__ + 4.3, self.__TOP__),
+            ball.Vector2(self.__LEFT__ + 4.3, self.__BOTTOM__)
+        ])
+
+        # Center of the field
+        dont_shoot_center_zone = ball.FieldZone(RebuiltFieldZone.DONT_SHOOT, [])
+        pass_previous_zone = ball.FieldZone(RebuiltFieldZone.PASS_PREVIOUS, [])
+        pass_left_zone = ball.FieldZone(RebuiltFieldZone.PASS_LEFT, [])
+        pass_right_zone = ball.FieldZone(RebuiltFieldZone.PASS_RIGHT, [])
+
+        # Other side of the field
+        dont_shoot_enemy_zone = ball.FieldZone(RebuiltFieldZone.DONT_SHOOT, [])
+        pass_center_previous_zone = ball.FieldZone(RebuiltFieldZone.PASS_CENTER_PREVIOUS, [])
+        pass_left_full_field_zone = ball.FieldZone(RebuiltFieldZone.PASS_LEFT, [])
+        pass_right_full_field_zone = ball.FieldZone(RebuiltFieldZone.PASS_RIGHT, [])
+
+        # Order of priority is from top to bottom
+        self.__field = ball.Field([
+            dont_shoot_center_zone,
+            dont_shoot_enemy_zone,
+            shoot_in_hub_zone,
+            pass_previous_zone,
+            pass_left_zone,
+            pass_right_zone,
+            pass_center_previous_zone,
+            pass_left_full_field_zone,
+            pass_right_full_field_zone
+        ])
+
+    def get_zone(self, pos: ball.Vector2) -> RebuiltFieldZone:
+        zone_id = self.__field.point_zone(pos)
+        return RebuiltFieldZone(zone_id)
+
+    @staticmethod
+    def from_baked(file: str = None):
+        pass

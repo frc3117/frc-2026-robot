@@ -1,4 +1,5 @@
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <pybind11/operators.h>
 
 #include <string>
@@ -77,6 +78,18 @@ struct Range {
     std::string to_repr() { return "<Range" + this->format(".3f") + ">"; }
 };
 
+
+// ============================================================================
+// Vector2
+// ============================================================================
+
+struct Vector2 {
+    float x;
+    float y;
+
+    Vector2() : x(0.0f), y(0.0f){}
+    Vector2(float x, float y) : x(x), y(y) {}
+};
 
 // ============================================================================
 // Vector3
@@ -717,8 +730,89 @@ private:
 
 
 // ============================================================================
+// FieldZone
+// ============================================================================
+
+struct FieldZone
+{
+    int kId;
+
+    FieldZone() : kId(-1) {}
+    FieldZone(int id, std::vector<Vector2> vertices)
+    {
+        kId = id;
+        m_vertices = vertices;
+    }
+
+    bool pointInZone(const Vector2& p)
+    {
+        int crossings = 0;
+        const size_t n = m_vertices.size();
+
+        for (size_t i = 0; i < n; ++i)
+        {
+            const Vector2& a = m_vertices[i];
+            const Vector2& b = m_vertices[(i + 1) % n];
+
+            // Check if point is exactly on a vertex or lies on an edge.
+            if ((p.x == a.x && p.y == a.y) || (p.x == b.x && p.y == b.y))
+                return true;
+
+            if (a.y == b.y && p.y == a.y && ((p.x >= std::min(a.x, b.x)) && (p.x <= std::max(a.x, b.x))))
+                return true; // point lies on a horizontal edge
+
+            if ((p.y > std::min(a.y, b.y)) && (p.y <= std::max(a.y, b.y)) && (a.y != b.y))
+            {
+                double x_intersect = a.x + (p.y - a.y) * (b.x - a.x) / (b.y - a.y);
+                if (x_intersect == p.x)   // point lies on boundary
+                    return true;
+
+                if (x_intersect > p.x)
+                    ++crossings;
+            }
+        }
+
+        return (crossings % 2) == 1;
+    }
+
+    private:
+    std::vector<Vector2> m_vertices;
+};
+
+
+struct Field {
+    Field() {}
+    Field(std::vector<FieldZone> zones)
+    {
+        m_zones = zones;
+    }
+
+    int pointZone(const Vector2& p)
+    {
+        const size_t n = m_zones.size();
+
+        for (size_t i = 0; i < n; ++i)
+        {
+            FieldZone& zone = m_zones[i];
+            if (zone.pointInZone(p))
+                return zone.kId;
+        }
+
+        return -1;
+    }
+
+    private:
+    std::vector<FieldZone> m_zones;
+};
+
+
+// ============================================================================
 // Python Module Bindings
 // ============================================================================
+
+
+//PYBIND11_MAKE_OPAQUE(std::vector<Vector2>);
+
 
 PYBIND11_MODULE(_core, m) {
     m.doc() = "FRC Ballistic Solver - Hybrid drag-aware projectile solver";
@@ -752,6 +846,13 @@ PYBIND11_MODULE(_core, m) {
         .def("width", &Range::width)
         .def_readwrite("min", &Range::min)
         .def_readwrite("max", &Range::max);
+
+    // Vector2
+    py::class_<Vector2>(m, "Vector2")
+        .def(py::init<>())
+        .def(py::init<float, float>(), py::arg("x"), py::arg("y"))
+        .def_readwrite("x", &Vector2::x)
+        .def_readwrite("y", &Vector2::y);
 
     // Vector3
     py::class_<Vector3>(m, "Vector3")
@@ -878,4 +979,15 @@ PYBIND11_MODULE(_core, m) {
         .def("set_speed_range", &HybridBallisticSolver::setSpeedRange)
         .def("set_airtime_range", &HybridBallisticSolver::setAirtimeRange)
         .def("set_projectile", &HybridBallisticSolver::setProjectile);
+
+    // FieldZone
+    py::class_<FieldZone>(m, "FieldZone")
+        .def(py::init<int, std::vector<Vector2>>(), py::arg("id"), py::arg("vertices"))
+        .def_readwrite("ID", &FieldZone::kId)
+        .def("is_point_in_zone", &FieldZone::pointInZone);
+
+    // Field
+    py::class_<Field>(m, "Field")
+        .def(py::init<std::vector<FieldZone>>(), py::arg("zones"))
+        .def("point_zone", &Field::pointZone);
 }

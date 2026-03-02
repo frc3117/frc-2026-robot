@@ -1,4 +1,4 @@
-from typing import overload
+from typing import overload, List
 
 
 class Range:
@@ -15,6 +15,16 @@ class Range:
     def clamp(self, v: float) -> float: ...
     def center(self) -> float: ...
     def width(self) -> float: ...
+
+
+class Vector2:
+    x: float
+    y: float
+
+    @overload
+    def __init__(self): ...
+    @overload
+    def __init__(self, x: float, y: float): ...
 
 
 class Vector3:
@@ -125,6 +135,7 @@ class HybridBallisticSolver:
 
     def solve(self, shooter_pos: Vector3, shooter_world_vel) -> BallisticSolution: ...
 
+
 class BallisticSolver:
     def __init__(self,
                  target_pos: Vector3,
@@ -137,3 +148,17 @@ class BallisticSolver:
                  prefer_high_arc: bool=True): ...
 
     def solve(self, shooter_pos: Vector3, shooter_world_vel: Vector3) -> BallisticSolution: ...
+
+
+class FieldZone:
+    ID: int
+
+    def __init__(self, id: int, vertices: List[Vector2]): ...
+
+    def is_point_in_zone(self, p: Vector2) -> bool: ...
+
+
+class Field:
+    def __init__(self, zones: List[FieldZone]): ...
+
+    def point_zone(self, p: Vector2) -> int: ...
