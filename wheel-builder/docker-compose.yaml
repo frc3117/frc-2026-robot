@@ -4,7 +4,7 @@ services:
     profiles: [rio]
 
     volumes:
-      # - "./frc-3117-tools-python:/packages/frc-3117-tools-python"
+      - "./frc-3117-tools-python:/packages/frc-3117-tools-python"
       - "../frc-ballistic-solver:/packages/frc-ballistic-solver"
       - "../robot/whl:/whl"
       - './scripts/build-entrypoint.sh:/packages/build-entrypoint.sh'

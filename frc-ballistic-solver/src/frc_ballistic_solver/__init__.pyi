@@ -9,6 +9,7 @@ from .ballistic_solver import (Range,
                                BallisticSolver,
                                FieldZone,
                                Field)
+from .crt import CRTEncoder, CRT
 
 
 __all__ = [
@@ -22,5 +23,7 @@ __all__ = [
     'HybridBallisticSolver',
     'BallisticSolver',
     'FieldZone',
-    'Field'
+    'Field',
+    'CRTEncoder',
+    'CRT'
 ]

@@ -129,3 +129,5 @@ class Shooter(Component):
 
     def set_angle(self, angle: float):
         pass
+
+

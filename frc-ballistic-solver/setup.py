@@ -6,7 +6,8 @@ from pybind11.setup_helpers import Pybind11Extension
 ext_modules = [
     Pybind11Extension(
         "frc_ballistic_solver._core",
-        sorted(glob("src/cpp/*.cpp", recursive=True))
+        sorted(glob("src/cpp/*.cpp", recursive=True)),
+        extra_compile_args=['-fPIC']
     )
 ]
 

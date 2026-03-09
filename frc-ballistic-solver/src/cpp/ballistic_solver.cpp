@@ -9,6 +9,9 @@
 
 namespace py = pybind11;
 
+#include "crt.h"
+void initCRT(py::module &m);
+
 
 // ============================================================================
 // Configuration
@@ -89,6 +92,105 @@ struct Vector2 {
 
     Vector2() : x(0.0f), y(0.0f){}
     Vector2(float x, float y) : x(x), y(y) {}
+
+    float sqrMagnitude() const {
+        return (this->x * this->x) + (this->y * this->y);
+    }
+    float magnitude() const {
+        return std::sqrt(sqrMagnitude());
+    }
+
+    float dot(const Vector2& other) const {
+        return (this->x * other.x) + (this->y * other.y);
+    }
+
+    friend Vector2 operator+(Vector2 lhs, const Vector2& rhs) {
+        return Vector2(lhs.x + rhs.x, lhs.y + rhs.y);
+    }
+    friend Vector2 operator+(Vector2 lhs, float rhs) {
+        return Vector2(lhs.x + rhs, lhs.y + rhs);
+    }
+    friend Vector2 operator+(Vector2 lhs, int rhs) {
+        return Vector2(lhs.x + rhs, lhs.y + rhs);
+    }
+    Vector2& operator+=(const Vector2& rhs) {
+        this->x += rhs.x; this->y += rhs.y;
+        return *this;
+    }
+    Vector2& operator+=(const float rhs) {
+        this->x += rhs; this->y += rhs;
+        return *this;
+    }
+    Vector2& operator+=(const int rhs) {
+        this->x += rhs; this->y += rhs;
+        return *this;
+    }
+
+    friend Vector2 operator-(Vector2 lhs, const Vector2& rhs) {
+        return Vector2(lhs.x - rhs.x, lhs.y - rhs.y);
+    }
+    friend Vector2 operator-(Vector2 lhs, float rhs) {
+        return Vector2(lhs.x - rhs, lhs.y - rhs);
+    }
+    friend Vector2 operator-(Vector2 lhs, int rhs) {
+        return Vector2(lhs.x - rhs, lhs.y - rhs);
+    }
+    Vector2& operator-=(const Vector2& rhs) {
+        this->x -= rhs.x; this->y -= rhs.y;
+        return *this;
+    }
+    Vector2& operator-=(const float rhs) {
+        this->x -= rhs; this->y -= rhs;
+        return *this;
+    }
+    Vector2& operator-=(const int rhs) {
+        this->x -= rhs; this->y -= rhs;
+        return *this;
+    }
+
+    friend Vector2 operator*(Vector2 lhs, const Vector2& rhs) {
+        return Vector2(lhs.x * rhs.x, lhs.y * rhs.y);
+    }
+    friend Vector2 operator*(Vector2 lhs, float rhs) {
+        return Vector2(lhs.x * rhs, lhs.y * rhs);
+    }
+    friend Vector2 operator*(Vector2 lhs, int rhs) {
+        return Vector2(lhs.x * rhs, lhs.y * rhs);
+    }
+    Vector2& operator*=(const Vector2& rhs) {
+        this->x *= rhs.x; this->y *= rhs.y;
+        return *this;
+    }
+    Vector2& operator*=(const float rhs) {
+        this->x *= rhs; this->y *= rhs;
+        return *this;
+    }
+    Vector2& operator*=(const int rhs) {
+        this->x *= rhs; this->y *= rhs;
+        return *this;
+    }
+
+    friend Vector2 operator/(Vector2 lhs, const Vector2& rhs) {
+        return Vector2(lhs.x / rhs.x, lhs.y / rhs.y);
+    }
+    friend Vector2 operator/(Vector2 lhs, float rhs) {
+        return Vector2(lhs.x / rhs, lhs.y / rhs);
+    }
+    friend Vector2 operator/(Vector2 lhs, int rhs) {
+        return Vector2(lhs.x / rhs, lhs.y / rhs);
+    }
+    Vector2& operator/=(const Vector2& rhs) {
+        this->x /= rhs.x; this->y /= rhs.y;
+        return *this;
+    }
+    Vector2& operator/=(const float rhs) {
+        this->x /= rhs; this->y /= rhs;
+        return *this;
+    }
+    Vector2& operator/=(const int rhs) {
+        this->x /= rhs; this->y /= rhs;
+        return *this;
+    }
 };
 
 // ============================================================================
@@ -990,4 +1092,6 @@ PYBIND11_MODULE(_core, m) {
     py::class_<Field>(m, "Field")
         .def(py::init<std::vector<FieldZone>>(), py::arg("zones"))
         .def("point_zone", &Field::pointZone);
+
+    initCRT(m);
 }

@@ -8,7 +8,9 @@ from ._core import (Range,
                     HybridBallisticSolver,
                     BallisticSolver,
                     FieldZone,
-                    Field)
+                    Field,
+                    CRTEncoder,
+                    CRT)
 
 
 __all__ = [
@@ -22,5 +24,7 @@ __all__ = [
     'HybridBallisticSolver',
     'BallisticSolver',
     'FieldZone',
-    'Field'
+    'Field',
+    'CRTEncoder',
+    'CRT'
 ]
