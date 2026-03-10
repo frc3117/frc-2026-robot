@@ -3,8 +3,8 @@ from .shift import (ShiftState,
                     ShiftUtils,
                     ShiftPeriod,
                     CurrentShiftInfo)
-from .pose import (RebuiltFieldZone,
-                   RebuiltField)
+#from .pose import (RebuiltFieldZone,
+#                   RebuiltField)
 
 from . import subsytems
 
@@ -15,7 +15,7 @@ __all__ = [
     'ShiftUtils',
     'ShiftPeriod',
     'CurrentShiftInfo',
-    'RebuiltFieldZone',
-    'RebuiltField',
+    #'RebuiltFieldZone',
+    #'RebuiltField',
     'subsytems'
 ]
