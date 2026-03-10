@@ -6,7 +6,7 @@ services:
     volumes:
       - "./frc-3117-tools-python:/packages/frc-3117-tools-python"
       - "../frc-ballistic-solver:/packages/frc-ballistic-solver"
-      - "../robot/whl:/whl"
+      - "../whl:/whl"
       - './scripts/build-entrypoint.sh:/packages/build-entrypoint.sh'
 
     working_dir: "/packages"
