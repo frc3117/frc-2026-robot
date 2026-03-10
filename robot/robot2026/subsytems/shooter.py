@@ -1,7 +1,13 @@
-from frctools import Component
-from frctools.frcmath import Range, lerp, between
+from frctools import Component, WPI_CANSparkMax
+from frctools.sensor import Encoder
+from frctools.frcmath import Range, lerp, between, repeat, SlewRateLimiter
+from frctools.input import Input
 
 
+from frc_ballistic_solver import CRT, CRTEncoder
+
+
+from wpiutil import SendableBuilder
 from wpimath.geometry import Translation3d
 
 
@@ -121,13 +127,70 @@ class BallisticSolver:
 
 
 class Shooter(Component):
+    __encoder_a: Encoder
+    __encoder_b: Encoder
+    __heading_motor: WPI_CANSparkMax
+
+    __crt_encoder_a: CRTEncoder
+    __crt_encoder_b: CRTEncoder
+    __crt: CRT
+    __crt_inverted: CRT
+
+    __current_angle: float = 0.
+
+    __speed_input: Input
+    __speed_ratio: float = 0.1
+
+    __limiter: SlewRateLimiter
+
+    def __init__(self, encoder_a: Encoder, encoder_b: Encoder, heading_motor: WPI_CANSparkMax):
+        super().__init__()
+
+        self.__encoder_a = encoder_a
+        self.__encoder_b = encoder_b
+        self.__heading_motor = heading_motor
+
+        self.__crt_encoder_a = CRTEncoder(18, 207, 1.)
+        self.__crt_encoder_b = CRTEncoder(23, 207, 1.)
+        self.__crt = CRT(self.__crt_encoder_a, self.__crt_encoder_b, 207)
+
+        self.__speed_input = Input.get_input('rotation')
+
+        self.__limiter = SlewRateLimiter(4)
+
+    def update_disabled(self):
+        self.__crt_encoder_a.set_angle01(self.__encoder_a.get())
+        self.__crt_encoder_b.set_angle01(self.__encoder_b.get())
+
+        self.__current_angle = self.__limiter.evaluate(2 - repeat(self.__crt.get_turn(max_turn=2) + 1.83, 2.))
+
+    def update(self):
+        self.__heading_motor.set(self.__speed_ratio * self.__speed_input.get())
+
+        self.__crt_encoder_a.set_angle01(self.__encoder_a.get())
+        self.__crt_encoder_b.set_angle01(self.__encoder_b.get())
+
+        self.__current_angle = self.__limiter.evaluate(2 - repeat(self.__crt.get_turn(max_turn=2) + 1.83, 2.))
+
     def recenter(self, angle=0):
         pass
 
-    def current_angle(self) -> float:
+    def current_heading(self) -> float:
+        return self.__current_angle
+
+    def set_heading(self, angle: float):
         pass
 
-    def set_angle(self, angle: float):
-        pass
+    def initSendable(self, builder: SendableBuilder):
+        def set_speed_ratio(val: float):
+            self.__speed_ratio = val
 
+        builder.addDoubleProperty("encoderA", self.__encoder_a.get, lambda v: None)
+        builder.addDoubleProperty("encoderA_raw", self.__encoder_a.get_raw, lambda v: None)
 
+        builder.addDoubleProperty("encoderB", self.__encoder_b.get, lambda v: None)
+        builder.addDoubleProperty("encoderB_raw", self.__encoder_b.get_raw, lambda v: None)
+
+        builder.addDoubleProperty("heading", self.current_heading, lambda v: None)
+
+        builder.addDoubleProperty("speedRatio", lambda: self.__speed_ratio, set_speed_ratio)
