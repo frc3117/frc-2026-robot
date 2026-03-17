@@ -1,5 +1,5 @@
 [tool.robotpy]
-robotpy_version = "2026.2.1.1"
+robotpy_version = "2026.2.2"
 components = [
     # "all",
     "apriltag",
@@ -13,5 +13,5 @@ requires = [
     "numpy",
     "robotpy-rev",
     "frctools==2026.0.3",
-    "frc_ballistic_solver==0.0.4"
+    "frc_ballistic_solver==0.0.5"
 ]

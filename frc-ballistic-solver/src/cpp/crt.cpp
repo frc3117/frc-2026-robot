@@ -1,12 +1,11 @@
 #include "crt.h"
 
-#include <pybind11/pybind11.h>
-
 #include <memory>
 #include <numeric>
 #include <cmath>
 #include <algorithm>
 
+#include <pybind11/pybind11.h>
 namespace py = pybind11;
 
 int gcd(int a, int b) {

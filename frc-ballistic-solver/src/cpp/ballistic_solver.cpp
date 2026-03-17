@@ -9,6 +9,9 @@
 
 namespace py = pybind11;
 
+#include "frcmath.h"
+void initMath(py::module &m);
+
 #include "crt.h"
 void initCRT(py::module &m);
 
@@ -81,7 +84,7 @@ struct Range {
     std::string to_repr() { return "<Range" + this->format(".3f") + ">"; }
 };
 
-
+/*
 // ============================================================================
 // Vector2
 // ============================================================================
@@ -90,7 +93,7 @@ struct Vector2 {
     float x;
     float y;
 
-    Vector2() : x(0.0f), y(0.0f){}
+    Vector2() : x(0.0f), y(0.0f) {}
     Vector2(float x, float y) : x(x), y(y) {}
 
     float sqrMagnitude() const {
@@ -192,6 +195,7 @@ struct Vector2 {
         return *this;
     }
 };
+*/
 
 // ============================================================================
 // Vector3
@@ -840,21 +844,21 @@ struct FieldZone
     int kId;
 
     FieldZone() : kId(-1) {}
-    FieldZone(int id, std::vector<Vector2> vertices)
+    FieldZone(int id, std::vector<FRC::Vector2> vertices)
     {
         kId = id;
         m_vertices = vertices;
     }
 
-    bool pointInZone(const Vector2& p)
+    bool pointInZone(const FRC::Vector2& p)
     {
         int crossings = 0;
         const size_t n = m_vertices.size();
 
         for (size_t i = 0; i < n; ++i)
         {
-            const Vector2& a = m_vertices[i];
-            const Vector2& b = m_vertices[(i + 1) % n];
+            const FRC::Vector2& a = m_vertices[i];
+            const FRC::Vector2& b = m_vertices[(i + 1) % n];
 
             // Check if point is exactly on a vertex or lies on an edge.
             if ((p.x == a.x && p.y == a.y) || (p.x == b.x && p.y == b.y))
@@ -878,7 +882,7 @@ struct FieldZone
     }
 
     private:
-    std::vector<Vector2> m_vertices;
+    std::vector<FRC::Vector2> m_vertices;
 };
 
 
@@ -889,7 +893,7 @@ struct Field {
         m_zones = zones;
     }
 
-    int pointZone(const Vector2& p)
+    int pointZone(const FRC::Vector2& p)
     {
         const size_t n = m_zones.size();
 
@@ -918,6 +922,9 @@ struct Field {
 
 PYBIND11_MODULE(_core, m) {
     m.doc() = "FRC Ballistic Solver - Hybrid drag-aware projectile solver";
+
+    initCRT(m);
+    initMath(m);
 
     // BallisticConfig
     py::class_<BallisticConfig>(m, "BallisticConfig")
@@ -950,11 +957,11 @@ PYBIND11_MODULE(_core, m) {
         .def_readwrite("max", &Range::max);
 
     // Vector2
-    py::class_<Vector2>(m, "Vector2")
+    /*py::class_<Vector2>(m, "Vector2")
         .def(py::init<>())
         .def(py::init<float, float>(), py::arg("x"), py::arg("y"))
         .def_readwrite("x", &Vector2::x)
-        .def_readwrite("y", &Vector2::y);
+        .def_readwrite("y", &Vector2::y);*/
 
     // Vector3
     py::class_<Vector3>(m, "Vector3")
@@ -1084,7 +1091,7 @@ PYBIND11_MODULE(_core, m) {
 
     // FieldZone
     py::class_<FieldZone>(m, "FieldZone")
-        .def(py::init<int, std::vector<Vector2>>(), py::arg("id"), py::arg("vertices"))
+        .def(py::init<int, std::vector<FRC::Vector2>>(), py::arg("id"), py::arg("vertices"))
         .def_readwrite("ID", &FieldZone::kId)
         .def("is_point_in_zone", &FieldZone::pointInZone);
 
@@ -1092,6 +1099,4 @@ PYBIND11_MODULE(_core, m) {
     py::class_<Field>(m, "Field")
         .def(py::init<std::vector<FieldZone>>(), py::arg("zones"))
         .def("point_zone", &Field::pointZone);
-
-    initCRT(m);
 }
