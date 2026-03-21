@@ -48,7 +48,11 @@ namespace FRC
         bool canDoRotation(const float& rotationCount);
         bool isValid(const float& rotationCount);
 
-        float getTurn(const float& weightA = 1.0f, const float& weightB = 1.0f, const float& maxTurn = INFINITY);
+        float getTurn(const float& weightA = 1.0f,
+                      const float& weightB = 1.0f,
+                      const float& maxTurn = INFINITY,
+                      const float& previousTurn = NAN,
+                      const float& proximityWeight = 0.0f);
         void setTurn(const float& turn);
 
         private:

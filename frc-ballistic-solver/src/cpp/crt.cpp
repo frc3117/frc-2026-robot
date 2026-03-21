@@ -66,9 +66,7 @@ float FRC::CRTEncoder::estimate(const int& n) {
 
 FRC::CRT::CRT(const std::shared_ptr<FRC::CRTEncoder>& encoderA, const std::shared_ptr<FRC::CRTEncoder>& encoderB, const int& turretTeeth) :
         m_encoderA(encoderA), m_encoderB(encoderB) {
-    //m_encoderA = encoderA;
-    //m_encoderB = encoderB;
-    m_turretTeeth = 207;
+    m_turretTeeth = turretTeeth;
 }
 
 float FRC::CRT::maxRotation() {
@@ -85,36 +83,53 @@ bool FRC::CRT::isValid(const float& rotationCount) {
     return isCoprime() && canDoRotation(rotationCount);
 }
 
-float FRC::CRT::getTurn(const float& weightA, const float& weightB, const float& maxTurn) {
+float FRC::CRT::getTurn(const float& weightA,
+                        const float& weightB,
+                        const float& maxTurn,
+                        const float& previousTurn,
+                        const float& proximityWeight) {
     int nMaxA = std::min((int)std::ceil(m_encoderA->estimateEncoderTurn(maxTurn)), m_encoderB->getGearTeeth());
     int nMaxB = std::min((int)std::ceil(m_encoderB->estimateEncoderTurn(maxTurn)), m_encoderA->getGearTeeth());
 
-    //int nMaxA = m_encoderB->getGearTeeth();
-    //int nMaxB = m_encoderA->getGearTeeth();
-
-    //if (weightA >= 1.0f)
-    //    return nMaxA * 100000 + nMaxB;
-
     float totWeight = weightA + weightB;
+    if (totWeight == 0.0f)
+        totWeight = 1.0f;
+
+    const bool usePrevious = std::isfinite(previousTurn) && proximityWeight > 0.0f;
+
+    const float wrapPeriod = std::isfinite(maxTurn) && maxTurn > 0.0f ? maxTurn : maxRotation();
+    auto wrappedDistance = [wrapPeriod](float a, float b) {
+        float d = std::abs(a - b);
+        if (std::isfinite(wrapPeriod) && wrapPeriod > 0.0f) {
+            d = std::fmod(d, wrapPeriod);
+            d = std::min(d, wrapPeriod - d);
+        }
+        return d;
+    };
 
     float best = 0.0f;
-    float smallest = INFINITY;
+    float bestScore = INFINITY;
+
     for (int i = 0; i < nMaxB; i++)
     {
-        for (int j = i; j < nMaxA; j++)
+        for (int j = 0; j < nMaxA; j++)
         {
             float aEstimate = m_encoderA->estimate(j);
             float bEstimate = m_encoderB->estimate(i);
 
             float err = std::abs(aEstimate - bEstimate);
-            if (err < smallest)
-            {
-                float curr = ((aEstimate * weightA) + (bEstimate * weightB)) / totWeight;
-                if (curr > maxTurn)
-                    continue;
+            float curr = ((aEstimate * weightA) + (bEstimate * weightB)) / totWeight;
+            if (curr > maxTurn)
+                continue;
 
+            float score = err;
+            if (usePrevious)
+                score += proximityWeight * wrappedDistance(curr, previousTurn);
+
+            if (score < bestScore)
+            {
                 best = curr;
-                smallest = err;
+                bestScore = score;
             }
         }
     }
@@ -155,6 +170,8 @@ void initCRT(py::module &m) {
         .def("get_turn", &FRC::CRT::getTurn,
             py::arg("weight_a") = 1.0f,
             py::arg("weight_b") = 1.0f,
-            py::arg("max_turn") = INFINITY)
+            py::arg("max_turn") = INFINITY,
+            py::arg("previous_turn") = NAN,
+            py::arg("proximity_weight") = 0.0f)
         .def("set_turn", &FRC::CRT::setTurn);
 }
