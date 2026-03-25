@@ -17,4 +17,3 @@ export PATH="/build/venv/bin:$PATH"
 /build/venv/bin/cross-pip install setuptools pybind11
 
 /build/venv/bin/cross-pip wheel /packages/frc-ballistic-solver -w /whl --no-deps --no-build-isolation --no-binary :all:
-/build/venv/bin/cross-pip wheel /packages/frc-3117-tools-python -w /whl --no-deps --no-build-isolation --no-binary :all:

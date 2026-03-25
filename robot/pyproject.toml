@@ -12,6 +12,7 @@ components = [
 requires = [
     "numpy",
     "robotpy-rev",
-    "frctools==2026.0.3",
-    "frc_ballistic_solver==0.0.5"
+    "frctools",
+    "frc_ballistic_solver",
+    "photonlibpy"
 ]

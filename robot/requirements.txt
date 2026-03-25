@@ -1,10 +1,7 @@
---find-links=whl
---prefer-binary
-
 #-e ./frc-3117-tools-python
-robotpy==2026.1.1
-robotpy-rev==2026.0.1
-photonlibpy==2026.1.1rc3
+robotpy==2026.2.2
+robotpy-rev
+photonlibpy
 
 # Wheels
-frc_ballistic_solver
+#-r whl-requirements.txt
