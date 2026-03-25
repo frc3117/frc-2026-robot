@@ -14,10 +14,10 @@ from frctools.frcmath import Vector2
 import frc_ballistic_solver as ball
 import time
 
-#from robot2026 import ShiftUtils
-#from robot2026.subsytems import (Climber,
-#                                 Feeder,
-#                                 Shooter)
+# from robot2026 import ShiftUtils
+from robot2026.subsytems import (Climber,
+                                 Feeder,
+                                 Shooter)
 
 
 from wpilib import (ADIS16448_IMU,
@@ -56,8 +56,6 @@ class Robot(RobotBase):
                                                             deadzone=0.02,
                                                             axis_transform=PowerTransform(1)),
                                     )
-
-
         self.test_input = Input.add_button("test", 0, XboxControllerInput.A)
 
         # Subsystems Inputs
@@ -71,6 +69,7 @@ class Robot(RobotBase):
         #   2------1
         #  RL      RR
 
+        '''
         drive_motor_0 = WPI_CANSparkFlex(2, True, False, True)
         dir_motor_0 = WPI_CANSparkMax(1, True, False, False)
         dir_encoder_0 = Encoder(dir_motor_0.get_absolute_encoder(), 0.802, False)
@@ -121,16 +120,40 @@ class Robot(RobotBase):
         swerve.set_drive_mode(SwerveDriveMode.FIELD_CENTRIC)
         swerve.set_cosine_compensation(True)
         self.add_component('Swerve', swerve)
+        '''
 
         # Subsystems
-        #climber = Climber()
-        #self.add_component('Climber', climber)
+        # climber = Climber()
+        # self.add_component('Climber', climber)
 
-        #feeder = Feeder()
-        #self.add_component('Feeder', feeder)
+        # feeder = Feeder()
+        # self.add_component('Feeder', feeder)
 
-        #shooter = Shooter()
-        #self.add_component('Shooter', shooter)
+        # Shooter
+        heading_encoder_a = Encoder(DutyCycleEncoder(0), 0.)
+        heading_encoder_b = Encoder(DutyCycleEncoder(1), 0.)
+        heading_motor = WPI_CANSparkMax(40, True, False, True)
+        heading_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
+
+        elevation_encoder = Encoder(DutyCycleEncoder(2), 0.)
+        elevation_motor = WPI_CANSparkMax(41, True, False, True)
+        elevation_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
+
+        speed_motor_a = WPI_CANSparkFlex(42, True, False, True)
+        speed_motor_b = WPI_CANSparkFlex(43, True, False, False)
+        speed_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
+
+        shooter = Shooter(heading_encoder_a=heading_encoder_a,
+                          heading_encoder_b=heading_encoder_b,
+                          heading_motor=heading_motor,
+                          heading_pid=heading_pid,
+                          elevation_encoder=elevation_encoder,
+                          elevation_motor=elevation_motor,
+                          elevation_pid=elevation_pid,
+                          speed_motor_a=speed_motor_a,
+                          speed_motor_b=speed_motor_b,
+                          speed_pid=speed_pid)
+        self.add_component('Shooter', shooter)
 
     def robotInit(self):
         super().robotInit()
@@ -139,7 +162,7 @@ class Robot(RobotBase):
         self.register_subsystems()
 
     def robotPeriodic(self):
-        #ShiftUtils.refresh_shift()
+        # ShiftUtils.refresh_shift()
 
         super().robotPeriodic()
 
@@ -162,14 +185,13 @@ class Robot(RobotBase):
 
             start_time = time.perf_counter()
             solution = solver.solve(robot_pos, robot_velocity)
-            #print(solution)
+            # print(solution)
             end_time = time.perf_counter()
 
             elapsed = end_time - start_time
             print(elapsed)
 
-
     def disabledInit(self):
-        #ShiftUtils.reset()
+        # ShiftUtils.reset()
 
         super().disabledInit()

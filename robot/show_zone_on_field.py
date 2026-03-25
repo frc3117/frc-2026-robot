@@ -13,7 +13,7 @@ def add_vec2(a: Vector2, b: Vector2):
 #    Inputs    #
 ################
 
-IMG_DOWNSCALE = 5
+IMG_DOWNSCALE = 10
 
 LEFT_MARGIN = 1067
 BOTTOM_MARGIN = 190
@@ -28,8 +28,8 @@ ZONE_COLORS = {
     RebuiltFieldZone.DONT_SHOOT: (0, 0, 0),
     RebuiltFieldZone.SHOOT_IN_HUB: (0, 255, 0),
     RebuiltFieldZone.PASS_PREVIOUS: (255, 255, 255),
-    RebuiltFieldZone.PASS_LEFT: (0, 0, 255),
-    RebuiltFieldZone.PASS_RIGHT: (255, 0, 0),
+    RebuiltFieldZone.PASS_LEFT: (0, 255, 255),
+    RebuiltFieldZone.PASS_RIGHT: (255, 165, 0),
     RebuiltFieldZone.PASS_CENTER_PREVIOUS: (255, 0, 255)
 }
 

@@ -88,8 +88,8 @@ float FRC::CRT::getTurn(const float& weightA,
                         const float& maxTurn,
                         const float& previousTurn,
                         const float& proximityWeight) {
-    int nMaxA = std::min((int)std::ceil(m_encoderA->estimateEncoderTurn(maxTurn)), m_encoderB->getGearTeeth());
-    int nMaxB = std::min((int)std::ceil(m_encoderB->estimateEncoderTurn(maxTurn)), m_encoderA->getGearTeeth());
+    int nMaxA = m_encoderB->getGearTeeth(); //std::min((int)std::ceil(m_encoderA->estimateEncoderTurn(maxTurn)), m_encoderB->getGearTeeth());
+    int nMaxB = m_encoderA->getGearTeeth(); //std::min((int)std::ceil(m_encoderB->estimateEncoderTurn(maxTurn)), m_encoderA->getGearTeeth());
 
     float totWeight = weightA + weightB;
     if (totWeight == 0.0f)
@@ -112,7 +112,7 @@ float FRC::CRT::getTurn(const float& weightA,
 
     for (int i = 0; i < nMaxB; i++)
     {
-        for (int j = 0; j < nMaxA; j++)
+        for (int j = 0; j < nMaxA ; j++)
         {
             float aEstimate = m_encoderA->estimate(j);
             float bEstimate = m_encoderB->estimate(i);

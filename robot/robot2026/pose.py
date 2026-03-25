@@ -101,23 +101,53 @@ class RebuiltField:
     def __init__(self):
         # Our side of the field
         shoot_in_hub_zone = ball.FieldZone(RebuiltFieldZone.SHOOT_IN_HUB, [
-            ball.Vector2(self.__LEFT__, self.__BOTTOM__),
-            ball.Vector2(self.__LEFT__, self.__TOP__),
-            ball.Vector2(self.__LEFT__ + 4.3, self.__TOP__),
-            ball.Vector2(self.__LEFT__ + 4.3, self.__BOTTOM__)
+            ball.Vector2(self.__LEFT__ - 1., self.__BOTTOM__ - 1.),
+            ball.Vector2(self.__LEFT__ - 1., self.__TOP__ + 1.),
+            ball.Vector2(self.__LEFT__ + 4.3, self.__TOP__ + 1.),
+            ball.Vector2(self.__LEFT__ + 4.3, self.__BOTTOM__ - 1.)
         ])
 
         # Center of the field
         dont_shoot_center_zone = ball.FieldZone(RebuiltFieldZone.DONT_SHOOT, [])
-        pass_previous_zone = ball.FieldZone(RebuiltFieldZone.PASS_PREVIOUS, [])
-        pass_left_zone = ball.FieldZone(RebuiltFieldZone.PASS_LEFT, [])
-        pass_right_zone = ball.FieldZone(RebuiltFieldZone.PASS_RIGHT, [])
+        pass_previous_zone = ball.FieldZone(RebuiltFieldZone.PASS_PREVIOUS, [
+            ball.Vector2(self.__LEFT__ + 4.95, self.__BOTTOM__ + 3.45),
+            ball.Vector2(self.__LEFT__ + 4.95, self.__TOP__ - 3.45),
+            ball.Vector2(self.__RIGHT__ - 4.95, self.__TOP__ - 3.45),
+            ball.Vector2(self.__RIGHT__ - 4.95, self.__BOTTOM__ + 3.45)
+        ])
+        pass_left_zone = ball.FieldZone(RebuiltFieldZone.PASS_LEFT, [
+            ball.Vector2(self.__LEFT__ + 4.95, self.__TOP__ + 1),
+            ball.Vector2(self.__LEFT__ + 4.95, self.__TOP__ - 3.45),
+            ball.Vector2(self.__RIGHT__ - 4.95, self.__TOP__ - 3.45),
+            ball.Vector2(self.__RIGHT__ - 4.95, self.__TOP__ + 1)
+        ])
+        pass_right_zone = ball.FieldZone(RebuiltFieldZone.PASS_RIGHT, [
+            ball.Vector2(self.__LEFT__ + 4.95, self.__BOTTOM__ - 1),
+            ball.Vector2(self.__LEFT__ + 4.95, self.__BOTTOM__ + 3.45),
+            ball.Vector2(self.__RIGHT__ - 4.95, self.__BOTTOM__ + 3.45),
+            ball.Vector2(self.__RIGHT__ - 4.95, self.__BOTTOM__ - 1)
+        ])
 
         # Other side of the field
         dont_shoot_enemy_zone = ball.FieldZone(RebuiltFieldZone.DONT_SHOOT, [])
-        pass_center_previous_zone = ball.FieldZone(RebuiltFieldZone.PASS_CENTER_PREVIOUS, [])
-        pass_left_full_field_zone = ball.FieldZone(RebuiltFieldZone.PASS_LEFT, [])
-        pass_right_full_field_zone = ball.FieldZone(RebuiltFieldZone.PASS_RIGHT, [])
+        pass_center_previous_zone = ball.FieldZone(RebuiltFieldZone.PASS_CENTER_PREVIOUS, [
+            ball.Vector2(self.__RIGHT__ - 4.3, self.__BOTTOM__ + 3.45),
+            ball.Vector2(self.__RIGHT__ - 4.3, self.__TOP__ - 3.45),
+            ball.Vector2(self.__RIGHT__ + 1., self.__TOP__ - 3.45),
+            ball.Vector2(self.__RIGHT__ + 1., self.__BOTTOM__ + 3.45)
+        ])
+        pass_left_full_field_zone = ball.FieldZone(RebuiltFieldZone.PASS_LEFT, [
+            ball.Vector2(self.__RIGHT__ - 4.3, self.__TOP__ + 1),
+            ball.Vector2(self.__RIGHT__ - 4.3, self.__TOP__ - 3.45),
+            ball.Vector2(self.__RIGHT__ + 1., self.__TOP__ - 3.45),
+            ball.Vector2(self.__RIGHT__ + 1., self.__TOP__ + 1)
+        ])
+        pass_right_full_field_zone = ball.FieldZone(RebuiltFieldZone.PASS_RIGHT, [
+            ball.Vector2(self.__RIGHT__ - 4.3, self.__BOTTOM__ - 1),
+            ball.Vector2(self.__RIGHT__ - 4.3, self.__BOTTOM__ + 3.45),
+            ball.Vector2(self.__RIGHT__ + 1., self.__BOTTOM__ + 3.45),
+            ball.Vector2(self.__RIGHT__ + 1., self.__BOTTOM__ - 1)
+        ])
 
         # Order of priority is from top to bottom
         self.__field = ball.Field([
@@ -131,6 +161,8 @@ class RebuiltField:
             pass_left_full_field_zone,
             pass_right_full_field_zone
         ])
+
+
 
     def get_zone(self, pos: ball.Vector2) -> RebuiltFieldZone:
         zone_id = self.__field.point_zone(pos)
