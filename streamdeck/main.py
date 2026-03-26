@@ -1,7 +1,7 @@
 from frctools.streamdeck import StreamDeckBoard
 from frctools.streamdeck.keys import StreamDeckKeyBool
 
-from frc_streamdeck import ReefSelector, RandomMessageKey
+from frc_streamdeck import ReefSelector, build_random_message_panel
 
 import ntcore
 from pathlib import Path
@@ -28,9 +28,21 @@ board.set_key((4, 2), StreamDeckKeyBool(label='Climb Prox', true_img='red', fals
 # Add the reef selector to the left
 reef = ReefSelector(board)
 
-# Random hype key: shows a random message from messages.txt, then clears
+# Random roast panel: spreads each message across multiple keys for readability
 messages_file = Path(__file__).with_name('messages.txt')
-board.set_key((7, 0), RandomMessageKey(str(messages_file), label='Hype', background='black', min_delay_s=4.0, max_delay_s=10.0, show_for_s=3.0))
+roast_keys = build_random_message_panel(
+    str(messages_file),
+    panel_capacity=4,
+    panel_size=4,  # change this (1..4) to control how many keys render text
+    label='Roast',
+    background='black',
+    min_delay_s=4.0,
+    max_delay_s=10.0,
+    show_for_s=3.0,
+)
+
+for coord, key in zip([(6, 0), (7, 0), (6, 1), (7, 1)], roast_keys):
+    board.set_key(coord, key)
 
 # Start the stream deck
 board.start()
