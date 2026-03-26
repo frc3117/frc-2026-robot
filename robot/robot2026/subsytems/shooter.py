@@ -1,5 +1,6 @@
 import math
 
+
 from frctools import Component, WPI_CANSparkMax, WPI_CANSparkFlex, Timer, CoroutineOrder
 from frctools.sensor import Encoder
 from frctools.frcmath import clamp, repeat, SlewRateLimiter

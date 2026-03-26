@@ -17,7 +17,8 @@ import time
 # from robot2026 import ShiftUtils
 from robot2026.subsytems import (Climber,
                                  Feeder,
-                                 Shooter)
+                                 Shooter,
+                                 Indexer)
 
 
 from wpilib import (ADIS16448_IMU,
@@ -122,12 +123,25 @@ class Robot(RobotBase):
         self.add_component('Swerve', swerve)
         '''
 
-        # Subsystems
-        # climber = Climber()
-        # self.add_component('Climber', climber)
+        # 30 Cassettte
+        # 20 Feeder Speed
+        # 22 Feeder Winch
 
-        # feeder = Feeder()
-        # self.add_component('Feeder', feeder)
+        # Subsystems
+
+        # Feeder
+        speed_motor = WPI_CANSparkMax(20, True, False, False)
+        winch_motor = WPI_CANSparkFlex(22, True, False, False)
+
+        feeder = Feeder(speed_motor=speed_motor,
+                        winch_motor=winch_motor)
+        self.add_component('Feeder', feeder)
+
+        # Indexer
+        cassette_motor = WPI_CANSparkFlex(30, True, False, False)
+
+        indexer = Indexer(cassette_motor=cassette_motor)
+        self.add_component('Indexer', indexer)
 
         # Shooter
         heading_encoder_a = Encoder(DutyCycleEncoder(0), 0.)
@@ -136,11 +150,11 @@ class Robot(RobotBase):
         heading_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
 
         elevation_encoder = Encoder(DutyCycleEncoder(2), 0.)
-        elevation_motor = WPI_CANSparkMax(41, True, False, True)
+        elevation_motor = WPI_CANSparkMax(43, True, False, True)
         elevation_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
 
-        speed_motor_a = WPI_CANSparkFlex(42, True, False, True)
-        speed_motor_b = WPI_CANSparkFlex(43, True, False, False)
+        speed_motor_a = WPI_CANSparkFlex(41, True, False, True)
+        speed_motor_b = WPI_CANSparkFlex(42, True, False, False)
         speed_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
 
         shooter = Shooter(heading_encoder_a=heading_encoder_a,
@@ -154,6 +168,12 @@ class Robot(RobotBase):
                           speed_motor_b=speed_motor_b,
                           speed_pid=speed_pid)
         self.add_component('Shooter', shooter)
+
+        # Climber
+
+
+        climber = Climber()
+        self.add_component('Climber', climber)
 
     def robotInit(self):
         super().robotInit()

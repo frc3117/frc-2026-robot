@@ -38,4 +38,4 @@ class Climber(Component):
     def initSendable(self, builder: wpiutil.SendableBuilder):
         builder.addDoubleProperty("height", self.get_current_height, lambda v: None)
         builder.addDoubleProperty("target_height", self.get_target_height, self.set_target_height)
-        builder.addBooleanProperty("")
+        #builder.addBooleanProperty("")
