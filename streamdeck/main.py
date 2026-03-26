@@ -28,21 +28,32 @@ board.set_key((4, 2), StreamDeckKeyBool(label='Climb Prox', true_img='red', fals
 # Add the reef selector to the left
 reef = ReefSelector(board)
 
-# Random roast panel: spreads each message across multiple keys for readability
+# Random roast panel: 3x3 coordinate-driven layout, order-independent mapping
 messages_file = Path(__file__).with_name('messages.txt')
+roast_coords = [
+    (5, 0), (6, 0), (7, 0),
+    (5, 1), (6, 1), (7, 1),
+    (5, 2), (6, 2), (7, 2),
+]
+
 roast_keys = build_random_message_panel(
     str(messages_file),
-    panel_capacity=4,
-    panel_size=4,  # change this (1..4) to control how many keys render text
+    coords=roast_coords,
+    panel_size=9,      # use fewer than 9 if you want a smaller active panel
     label='Roast',
     background='black',
     min_delay_s=4.0,
     max_delay_s=10.0,
     show_for_s=3.0,
+    margin=8,          # inner text margin in px
+    h_align='center',  # left|center|right
+    v_align='center',  # top|center|bottom
+    min_font_size=10,
+    max_font_size=36,
 )
 
-for coord, key in zip([(6, 0), (7, 0), (6, 1), (7, 1)], roast_keys):
-    board.set_key(coord, key)
+for coord in roast_coords:
+    board.set_key(coord, roast_keys[coord])
 
 # Start the stream deck
 board.start()
