@@ -20,12 +20,12 @@ def _load_font(size: int):
         return ImageFont.load_default(size)
 
 
-def _fit_font_for_text(text: str, max_width: int, max_height: int, min_size: int, max_size: int):
+def _best_font_size_for_text(text: str, max_width: int, max_height: int, min_size: int, max_size: int) -> int:
     if not text:
-        return _load_font(min_size)
+        return min_size
 
     lo, hi = min_size, max_size
-    best = _load_font(min_size)
+    best_size = min_size
 
     while lo <= hi:
         mid = (lo + hi) // 2
@@ -34,12 +34,12 @@ def _fit_font_for_text(text: str, max_width: int, max_height: int, min_size: int
         w, h = (r - l), (b - t)
 
         if w <= max_width and h <= max_height:
-            best = font
+            best_size = mid
             lo = mid + 1
         else:
             hi = mid - 1
 
-    return best
+    return best_size
 
 
 class _RandomMessageState:
@@ -223,14 +223,16 @@ class RandomMessagePanelKey(StreamDeckKey):
 
         self._last_text = None
 
-    def _text_for_me(self):
+    def _slot_map(self):
         text = self._state.current_text
         if not text:
-            return None
+            return {}
 
         words = text.split()
-        slot_map = self._layout.words_to_slot_map(words, self._panel_size)
-        return slot_map.get(self._slot)
+        return self._layout.words_to_slot_map(words, self._panel_size)
+
+    def _text_for_me(self):
+        return self._slot_map().get(self._slot)
 
     def update(self):
         changed = self._state.tick()
@@ -249,7 +251,20 @@ class RandomMessagePanelKey(StreamDeckKey):
             draw = ImageDraw.Draw(img)
             max_w = max(1, img.width - (2 * self._margin))
             max_h = max(1, img.height - (2 * self._margin))
-            font = _fit_font_for_text(self._last_text, max_w, max_h, self._min_font_size, self._max_font_size)
+
+            # Keep font size constant across all active panel words by using
+            # the smallest fitted size among the currently displayed words.
+            slot_map = self._slot_map()
+            words = [w for w in slot_map.values() if w]
+            if words:
+                shared_size = min(
+                    _best_font_size_for_text(w, max_w, max_h, self._min_font_size, self._max_font_size)
+                    for w in words
+                )
+            else:
+                shared_size = self._min_font_size
+
+            font = _load_font(shared_size)
             draw.text((img.width / 2, img.height / 2), self._last_text, fill='white', font=font, anchor='mm', align='center')
 
         return img
