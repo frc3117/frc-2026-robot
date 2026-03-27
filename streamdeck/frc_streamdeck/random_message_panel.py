@@ -95,7 +95,7 @@ class _PanelLayout:
         self.v_align = v_align
 
         xs = sorted(set(x for x, _ in coords))
-        ys = sorted(set(y for _, y in coords))
+        ys = sorted(set(y for _, y in coords), reverse=True)
         self._x_to_col = {x: i for i, x in enumerate(xs)}
         self._y_to_row = {y: i for i, y in enumerate(ys)}
 
