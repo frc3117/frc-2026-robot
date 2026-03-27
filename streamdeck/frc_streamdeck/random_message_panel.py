@@ -17,7 +17,7 @@ def _load_font(size: int):
     try:
         return ImageFont.truetype('DejaVuSans.ttf', size)
     except Exception:
-        return ImageFont.load_default()
+        return ImageFont.load_default(size)
 
 
 def _fit_font_for_text(text: str, max_width: int, max_height: int, min_size: int, max_size: int):

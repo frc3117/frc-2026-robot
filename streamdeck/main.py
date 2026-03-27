@@ -40,16 +40,16 @@ roast_keys = build_random_message_panel(
     str(messages_file),
     coords=roast_coords,
     panel_size=9,      # use fewer than 9 if you want a smaller active panel
-    label='Roast',
+    label='',
     background='black',
-    min_delay_s=4.0,
-    max_delay_s=10.0,
+    min_delay_s=1.0,
+    max_delay_s=5.0,
     show_for_s=3.0,
-    margin=8,          # inner text margin in px
+    margin=4,          # inner text margin in px
     h_align='center',  # left|center|right
     v_align='center',  # top|center|bottom
-    min_font_size=10,
-    max_font_size=36,
+    min_font_size=1,
+    max_font_size=100,
     roast_level='feral',  # light|medium|feral|all
 )
 
