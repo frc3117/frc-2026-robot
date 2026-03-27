@@ -43,13 +43,13 @@ def _fit_font_for_text(text: str, max_width: int, max_height: int, min_size: int
 
 
 class _RandomMessageState:
-    def __init__(self, messages_path: str, min_delay_s: float, max_delay_s: float, show_for_s: float):
+    def __init__(self, messages_path: str, min_delay_s: float, max_delay_s: float, show_for_s: float, roast_level: str = 'all'):
         if min_delay_s < 0 or max_delay_s < min_delay_s:
             raise ValueError('Invalid delay range')
         if show_for_s <= 0:
             raise ValueError('show_for_s must be > 0')
 
-        self._messages = self._load_messages(messages_path)
+        self._messages = self._load_messages(messages_path, roast_level)
         if len(self._messages) == 0:
             raise ValueError(f'No messages found in {messages_path}')
 
@@ -62,9 +62,39 @@ class _RandomMessageState:
         self._next_show_at = time.monotonic() + uniform(self._min_delay_s, self._max_delay_s)
 
     @staticmethod
-    def _load_messages(messages_path: str) -> list[str]:
+    def _load_messages(messages_path: str, roast_level: str) -> list[str]:
+        level_order = {'light': 0, 'medium': 1, 'feral': 2}
+        roast_level = (roast_level or 'all').strip().lower()
+        if roast_level != 'all' and roast_level not in level_order:
+            raise ValueError("roast_level must be one of: all, light, medium, feral")
+
         lines = Path(messages_path).read_text(encoding='utf-8').splitlines()
-        return [line.strip() for line in lines if line.strip()]
+
+        def parse_line(line: str):
+            s = line.strip()
+            if not s:
+                return None
+
+            # Tagged format: [light] message text
+            if s.startswith('['):
+                close_idx = s.find(']')
+                if close_idx > 1:
+                    tag = s[1:close_idx].strip().lower()
+                    msg = s[close_idx + 1:].strip()
+                    if tag in level_order and msg:
+                        return tag, msg
+
+            # Untagged lines default to medium
+            return 'medium', s
+
+        parsed = [parse_line(line) for line in lines]
+        parsed = [p for p in parsed if p is not None]
+
+        if roast_level == 'all':
+            return [msg for _, msg in parsed]
+
+        threshold = level_order[roast_level]
+        return [msg for lvl, msg in parsed if level_order[lvl] <= threshold]
 
     def tick(self):
         now = time.monotonic()
@@ -239,6 +269,7 @@ def build_random_message_panel(
     v_align: str = 'center',
     min_font_size: int = 10,
     max_font_size: int = 36,
+    roast_level: str = 'all',
 ):
     if h_align not in ('left', 'center', 'right'):
         raise ValueError("h_align must be 'left', 'center', or 'right'")
@@ -249,7 +280,7 @@ def build_random_message_panel(
     if panel_size is None:
         panel_size = layout.capacity
 
-    state = _RandomMessageState(messages_path, min_delay_s, max_delay_s, show_for_s)
+    state = _RandomMessageState(messages_path, min_delay_s, max_delay_s, show_for_s, roast_level=roast_level)
 
     keys_by_coord: Dict[Coord, RandomMessagePanelKey] = {}
     # label only on the top-left coordinate (small visual cue)

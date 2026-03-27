@@ -50,6 +50,7 @@ roast_keys = build_random_message_panel(
     v_align='center',  # top|center|bottom
     min_font_size=10,
     max_font_size=36,
+    roast_level='feral',  # light|medium|feral|all
 )
 
 for coord in roast_coords:
