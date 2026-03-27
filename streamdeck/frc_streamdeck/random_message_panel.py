@@ -4,12 +4,77 @@ from pathlib import Path
 from random import choice, uniform
 from typing import Dict, List, Tuple
 
+import colorsys
+import re
 import time
 
-from PIL import ImageDraw, ImageFont
+from PIL import ImageColor, ImageDraw, ImageFont
 
 
 Coord = Tuple[int, int]
+WordToken = Tuple[str, Tuple[int, int, int]]
+
+
+_COLOR_TAG_RE = re.compile(r'<\s*(rgb|hsv|color)\s*\(([^)]*)\)\s*>', re.IGNORECASE)
+_CLOSE_TAG_RE = re.compile(r'<\s*/\s*(rgb|hsv|color)\s*>', re.IGNORECASE)
+
+
+def _parse_color(tag_type: str, args: str) -> Tuple[int, int, int]:
+    tag_type = tag_type.lower()
+    if tag_type == 'rgb':
+        parts = [p.strip() for p in args.split(',')]
+        if len(parts) != 3:
+            raise ValueError('rgb() needs 3 components')
+        r, g, b = (max(0, min(255, int(float(p)))) for p in parts)
+        return int(r), int(g), int(b)
+
+    if tag_type == 'hsv':
+        parts = [p.strip() for p in args.split(',')]
+        if len(parts) != 3:
+            raise ValueError('hsv() needs 3 components')
+        h = float(parts[0]) % 360.0
+        s = max(0.0, min(1.0, float(parts[1])))
+        v = max(0.0, min(1.0, float(parts[2])))
+        r, g, b = colorsys.hsv_to_rgb(h / 360.0, s, v)
+        return int(r * 255), int(g * 255), int(b * 255)
+
+    # color(name) or color(#hex)
+    return ImageColor.getrgb(args.strip())
+
+
+def _parse_colored_tokens(text: str) -> List[WordToken]:
+    default_color = (255, 255, 255)
+    current_color = default_color
+    tokens: List[WordToken] = []
+
+    i = 0
+    while i < len(text):
+        open_m = _COLOR_TAG_RE.match(text, i)
+        if open_m:
+            try:
+                current_color = _parse_color(open_m.group(1), open_m.group(2))
+            except Exception:
+                current_color = default_color
+            i = open_m.end()
+            continue
+
+        close_m = _CLOSE_TAG_RE.match(text, i)
+        if close_m:
+            current_color = default_color
+            i = close_m.end()
+            continue
+
+        next_tag = text.find('<', i)
+        chunk = text[i:] if next_tag == -1 else text[i:next_tag]
+        for w in chunk.split():
+            if w:
+                tokens.append((w, current_color))
+
+        if next_tag == -1:
+            break
+        i = next_tag
+
+    return tokens
 
 
 def _load_font(size: int):
@@ -63,10 +128,7 @@ class _RandomMessageState:
 
     @staticmethod
     def _load_messages(messages_path: str, roast_level: str) -> list[str]:
-        level_order = {'light': 0, 'medium': 1, 'feral': 2}
         roast_level = (roast_level or 'all').strip().lower()
-        if roast_level != 'all' and roast_level not in level_order:
-            raise ValueError("roast_level must be one of: all, light, medium, feral")
 
         lines = Path(messages_path).read_text(encoding='utf-8').splitlines()
 
@@ -75,17 +137,17 @@ class _RandomMessageState:
             if not s:
                 return None
 
-            # Tagged format: [light] message text
+            # Tagged format: [any-tag] message text
             if s.startswith('['):
                 close_idx = s.find(']')
                 if close_idx > 1:
                     tag = s[1:close_idx].strip().lower()
                     msg = s[close_idx + 1:].strip()
-                    if tag in level_order and msg:
+                    if tag and msg:
                         return tag, msg
 
-            # Untagged lines default to medium
-            return 'medium', s
+            # Untagged lines go to the "default" tag
+            return 'default', s
 
         parsed = [parse_line(line) for line in lines]
         parsed = [p for p in parsed if p is not None]
@@ -93,8 +155,11 @@ class _RandomMessageState:
         if roast_level == 'all':
             return [msg for _, msg in parsed]
 
-        threshold = level_order[roast_level]
-        return [msg for lvl, msg in parsed if level_order[lvl] <= threshold]
+        selected_levels = {lvl.strip().lower() for lvl in roast_level.split(',') if lvl.strip()}
+        if not selected_levels:
+            raise ValueError("roast_level must be 'all' or a comma-separated list of tags")
+
+        return [msg for lvl, msg in parsed if lvl in selected_levels]
 
     def tick(self):
         now = time.monotonic()
@@ -145,7 +210,7 @@ class _PanelLayout:
             col = self._x_to_col[x]
             self.coord_to_slot[coord] = row * self.cols + col
 
-    def words_to_slot_map(self, words: List[str], panel_size: int) -> Dict[int, str]:
+    def words_to_slot_map(self, words: List[WordToken], panel_size: int) -> Dict[int, WordToken]:
         if panel_size <= 0:
             return {}
 
@@ -154,7 +219,7 @@ class _PanelLayout:
         if len(words) == 0:
             return {}
 
-        slot_to_word: Dict[int, str] = {}
+        slot_to_word: Dict[int, WordToken] = {}
 
         rows_usable = min(self.rows, (usable_slots + self.cols - 1) // self.cols)
         words_remaining = len(words)
@@ -221,25 +286,25 @@ class RandomMessagePanelKey(StreamDeckKey):
         self._min_font_size = min_font_size
         self._max_font_size = max_font_size
 
-        self._last_text = None
+        self._last_token: WordToken = None
 
     def _slot_map(self):
         text = self._state.current_text
         if not text:
             return {}
 
-        words = text.split()
+        words = _parse_colored_tokens(text)
         return self._layout.words_to_slot_map(words, self._panel_size)
 
-    def _text_for_me(self):
+    def _token_for_me(self):
         return self._slot_map().get(self._slot)
 
     def update(self):
         changed = self._state.tick()
-        text = self._text_for_me()
+        token = self._token_for_me()
 
-        if changed or text != self._last_text:
-            self._last_text = text
+        if changed or token != self._last_token:
+            self._last_token = token
             self.update_img()
 
         super().update()
@@ -247,7 +312,7 @@ class RandomMessagePanelKey(StreamDeckKey):
     def generate_img(self):
         img = self.create_img(self._background, label=self._label)
 
-        if self._last_text:
+        if self._last_token:
             draw = ImageDraw.Draw(img)
             max_w = max(1, img.width - (2 * self._margin))
             max_h = max(1, img.height - (2 * self._margin))
@@ -255,7 +320,7 @@ class RandomMessagePanelKey(StreamDeckKey):
             # Keep font size constant across all active panel words by using
             # the smallest fitted size among the currently displayed words.
             slot_map = self._slot_map()
-            words = [w for w in slot_map.values() if w]
+            words = [t[0] for t in slot_map.values() if t]
             if words:
                 shared_size = min(
                     _best_font_size_for_text(w, max_w, max_h, self._min_font_size, self._max_font_size)
@@ -264,8 +329,9 @@ class RandomMessagePanelKey(StreamDeckKey):
             else:
                 shared_size = self._min_font_size
 
+            text, color = self._last_token
             font = _load_font(shared_size)
-            draw.text((img.width / 2, img.height / 2), self._last_text, fill='white', font=font, anchor='mm', align='center')
+            draw.text((img.width / 2, img.height / 2), text, fill=color, font=font, anchor='mm', align='center')
 
         return img
 
