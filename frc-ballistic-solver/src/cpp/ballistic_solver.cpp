@@ -287,6 +287,10 @@ struct Vector3 {
     friend Vector3 operator/(Vector3 lhs, float rhs) {
         return Vector3(lhs.x / rhs, lhs.y / rhs, lhs.z / rhs);
     }
+    Vector3& operator/=(float rhs) {
+        this->x /= rhs; this->y /= rhs; this->z /= rhs;
+        return *this;
+    }
 };
 
 
@@ -495,6 +499,7 @@ struct BallisticSolution {
     bool valid = false;
     float time = 0.0f;
     float speed = 0.0f;
+    float angSpeed = 0.0f;
     Vector3 aimDir;
     Vector3 impactVelocity;
     Vector3 impactDir;
@@ -502,6 +507,18 @@ struct BallisticSolution {
     float elevation = 0.0f;
     float score = INFINITY;
     float error = INFINITY;  // New: error in meters
+
+    float bottomWheelVelocity = 0.0f;
+    float topWheelVelocity = 0.0f;
+
+    Vector3 getAngularVelocity() const {
+        Vector3 projectedAimDir = Vector3(aimDir.x, aimDir.y, 0.0f);
+        Vector3 angularVelocity = projectedAimDir.cross(aimDir);
+        angularVelocity /= angularVelocity.magnitude();
+        angularVelocity *= angSpeed;
+
+        return angularVelocity;
+    }
 
     std::string format(const std::string& spec) const {
         py::object py_format = py::module::import("builtins").attr("format");
@@ -536,7 +553,11 @@ public:
                           bool preferHighArc = true,
                           int refinementPasses = 3,
                           float convergenceThreshold = 0.02f,
-                          float dt = 0.0005f)
+                          float dt = 0.0005f,
+                          float magnusRatio = 1.0f,
+                          float ballRadius = 0.072f,
+                          float bottomWheelRadius = 0.0048f,
+                          float topWheelRadius = 1.0f)
         : m_targetPos(targetPos),
           m_speedRange(speedRange),
           m_airtimeRange(airtimeRange),
@@ -550,7 +571,11 @@ public:
           m_preferHighArc(preferHighArc),
           m_refinementPasses(refinementPasses),
           m_convergenceThreshold(convergenceThreshold),
-          m_dt(dt) {}
+          m_dt(dt),
+          m_magnusRatio(magnusRatio / ballRadius),
+          m_ballRadius(ballRadius),
+          m_bottomWheelRadius(bottomWheelRadius),
+          m_topWheelRadius(topWheelRadius) {}
 
     BallisticSolution solve(const Vector3& shooterPos, const Vector3& shooterWorldVel) {
         // Phase 1: Kinematic estimate (fast, no drag)
@@ -649,6 +674,10 @@ private:
     int m_refinementPasses;
     float m_convergenceThreshold;
     float m_dt;
+    float m_magnusRatio;
+    float m_ballRadius;
+    float m_bottomWheelRadius;
+    float m_topWheelRadius;
 
     // Phase 2: Validate with full drag simulation
     float validateWithSimulation(BallisticSolution& sol, 
@@ -677,10 +706,10 @@ private:
     BallisticSolution refineSolution(const BallisticSolution& initial,
                                      const Vector3& shooterPos,
                                      const Vector3& shooterWorldVel) {
-        Range speedSearch(m_speedRange.clamp(initial.speed * 0.95f),
-                          m_speedRange.clamp(initial.speed * 1.05f));
-        Range timeSearch(m_airtimeRange.clamp(initial.time * 0.95f),
-                         m_airtimeRange.clamp(initial.time * 1.05f));
+        Range speedSearch(m_speedRange.clamp(initial.speed * 0.85f),
+                          m_speedRange.clamp(initial.speed * 1.15f));
+        Range timeSearch(m_airtimeRange.clamp(initial.time * 0.85f),
+                         m_airtimeRange.clamp(initial.time * 1.15f));
 
         BallisticSolution best = initial;
         best.error = simulateAndMeasureError(best, shooterPos, shooterWorldVel);
@@ -742,6 +771,10 @@ private:
         BallisticSolution sol;
         sol.time = time;
         sol.speed = speed;
+        sol.angSpeed = m_magnusRatio * speed;
+
+        sol.bottomWheelVelocity = (speed * (1.0f + m_magnusRatio * m_ballRadius)) / m_bottomWheelRadius;
+        sol.topWheelVelocity = (speed * (1.0f - m_magnusRatio * m_ballRadius)) / m_bottomWheelRadius;
 
         // Compute aim direction from kinematic equation
         Vector3 relativeTargetPos = m_targetPos - shooterPos;
@@ -777,7 +810,7 @@ private:
         BallisticSimState state;
         state.position = shooterPos;
         state.linearVelocity = shooterWorldVel + sol.aimDir * sol.speed;
-        state.angularVelocity = Vector3();
+        state.angularVelocity = sol.getAngularVelocity();
         state.time = 0.0f;
 
         BallisticSimulator sim(m_projectile, state, m_dt, m_gravity);
@@ -1053,7 +1086,10 @@ PYBIND11_MODULE(_core, m) {
         .def_readwrite("heading", &BallisticSolution::heading)
         .def_readwrite("elevation", &BallisticSolution::elevation)
         .def_readwrite("score", &BallisticSolution::score)
-        .def_readwrite("error", &BallisticSolution::error);
+        .def_readwrite("error", &BallisticSolution::error)
+        .def_readwrite("bottom_wheel_vel", &BallisticSolution::bottomWheelVelocity)
+        .def_readwrite("top_wheel_vel", &BallisticSolution::topWheelVelocity)
+        .def("get_angular_velocity", &BallisticSolution::getAngularVelocity);
 
     // BallisticSolver (legacy)
     py::class_<BallisticSolver>(m, "BallisticSolver")
@@ -1070,7 +1106,7 @@ PYBIND11_MODULE(_core, m) {
 
     // HybridBallisticSolver (new)
     py::class_<HybridBallisticSolver>(m, "HybridBallisticSolver")
-        .def(py::init<Vector3, Range, Range, Projectile, Vector3, float, Vector3, int, bool, int, float, float>(),
+        .def(py::init<Vector3, Range, Range, Projectile, Vector3, float, Vector3, int, bool, int, float, float, float, float, float, float>(),
              py::arg("target_pos"),
              py::arg("speed_range"),
              py::arg("airtime_range"),
@@ -1082,7 +1118,11 @@ PYBIND11_MODULE(_core, m) {
              py::arg("prefer_high_arc") = true,
              py::arg("refinement_passes") = 3,
              py::arg("convergence_threshold") = 0.02f,
-             py::arg("dt") = 0.01f)
+             py::arg("dt") = 0.01f,
+             py::arg("magnus_ratio") = 1.0f,
+             py::arg("ball_radius") = 0.072f,
+             py::arg("bottom_wheel_radius") = 0.0048f,
+             py::arg("top_wheel_radius") = 1.0f)
         .def("solve", &HybridBallisticSolver::solve)
         .def("set_target_pos", &HybridBallisticSolver::setTargetPos)
         .def("set_speed_range", &HybridBallisticSolver::setSpeedRange)

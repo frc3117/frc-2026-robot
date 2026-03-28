@@ -77,13 +77,15 @@ class Projectile:
     OBJ_MOMENT_INERTIA: float
     AIR_DENSITY: float
     DRAG_COEF: float
+    MAGNUS_COEF: float
 
     def __init__(self,
                  obj_area: float,
                  obj_mass: float,
                  obj_moment_inertia: float,
                  air_density: float = 1.293,
-                 drag_coef: float = 0.47): ...
+                 drag_coef: float = 0.47,
+                 magnus_coef: float = 0.): ...
 
 
 class BallisticSimState:
@@ -110,12 +112,15 @@ class BallisticSolution:
     valid: bool
     time: float
     speed: float
+    ang_speed: float
     aim_dir: Vector3
     impact_vel: Vector3
     impact_dir: Vector3
     heading: float
     elevation: float
     score: float
+
+    def get_angular_velocity(self) -> Vector3: ...
 
 
 class HybridBallisticSolver:
@@ -131,7 +136,11 @@ class HybridBallisticSolver:
                  prefer_high_arc: bool = True,
                  refinement_passes: int = 3,
                  convergence_threshold: float = 0.02,
-                 dt: float = 0.01): ...
+                 dt: float = 0.01,
+                 magnus_ratio: float = 1.,
+                 ball_radius: float = 0.072,
+                 bottom_wheel_radius: float = 0.0048,
+                 top_wheel_radius: float = 1.): ...
 
     def solve(self, shooter_pos: Vector3, shooter_world_vel) -> BallisticSolution: ...
 
