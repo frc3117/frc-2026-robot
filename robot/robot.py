@@ -9,21 +9,30 @@ from frctools.drivetrain import (SwerveDrive,
                                  SwerveDriveMode)
 from frctools.sensor import Encoder
 from frctools.controll import PID
-from frctools.frcmath import Vector2
+from frctools.frcmath import Vector2, Vector3
 
 import frc_ballistic_solver as ball
 import time
+import math
 
 # from robot2026 import ShiftUtils
+from robot2026.pose import PoseEstimationCamera, RobotPoseEstimator
 from robot2026.subsytems import (Climber,
                                  Feeder,
                                  Shooter,
-                                 Indexer)
+                                 Indexer,
+                                 RobotController)
+
 
 
 from wpilib import (ADIS16448_IMU,
                     SPI,
-                    DutyCycleEncoder)
+                    DutyCycleEncoder,
+                    DigitalInput)
+
+from robotpy_apriltag import AprilTagFieldLayout, AprilTagField
+
+from photonlibpy import PhotonCamera
 
 
 class Robot(RobotBase):
@@ -61,6 +70,10 @@ class Robot(RobotBase):
 
         # Subsystems Inputs
 
+        Input.add_button('idle', 0, XboxControllerInput.B)
+        Input.add_button('souffleuse', 0, XboxControllerInput.A)
+        Input.add_button('climb', 0, XboxControllerInput.Y)
+
     def register_subsystems(self):
         # Swerve
 
@@ -70,7 +83,6 @@ class Robot(RobotBase):
         #   2------1
         #  RL      RR
 
-        '''
         drive_motor_0 = WPI_CANSparkFlex(2, True, False, True)
         dir_motor_0 = WPI_CANSparkMax(1, True, False, False)
         dir_encoder_0 = Encoder(dir_motor_0.get_absolute_encoder(), 0.802, False)
@@ -100,7 +112,8 @@ class Robot(RobotBase):
                          steering_encoder=dir_encoder_1,
                          steering_controller=PID(0.3, 0, 0),
                          steering_offset=0.,
-                         position=Vector2(11.8717, -9.8750)),
+                         position=Vector2(-11.8717, 9.8750)),
+                         #position=Vector2(11.8717, -9.8750)),
 
             SwerveModule(drive_motor=drive_motor_2,
                          steering_motor=dir_motor_2,
@@ -114,14 +127,15 @@ class Robot(RobotBase):
                          steering_encoder=dir_encoder_3,
                          steering_controller=PID(0.3, 0, 0),
                          steering_offset=0.,
-                         position=Vector2(-11.8717, 9.8750))
+                         position=Vector2(11.8717, -9.8750)),
+                         #position=Vector2(-11.8717, 9.8750))
         ]
 
         swerve = SwerveDrive(swerve_modules, imu=ADIS16448_IMU(ADIS16448_IMU.IMUAxis.kZ, SPI.Port.kMXP, ADIS16448_IMU.CalibrationTime._1s), start_heading=0)
         swerve.set_drive_mode(SwerveDriveMode.FIELD_CENTRIC)
         swerve.set_cosine_compensation(True)
         self.add_component('Swerve', swerve)
-        '''
+
 
         # 30 Cassettte
         # 20 Feeder Speed
@@ -129,51 +143,83 @@ class Robot(RobotBase):
 
         # Subsystems
 
+        # Pose Estimator
+        april_tag_layout = AprilTagFieldLayout.loadField(AprilTagField.k2026RebuiltWelded)
+
+        front_left_camera = PoseEstimationCamera(april_tag_layout,
+                                                 PhotonCamera("Front_Left"),
+                                                 Vector3(-0.2699, -0.1913, 0.3612),
+                                                 Vector3(0.0175, 5.768, 0.5 * math.pi))
+        rear_right_camera = PoseEstimationCamera(april_tag_layout,
+                                                 PhotonCamera("Rear_Right"),
+                                                 Vector3(-0.2699, -0.1913, 0.3612),
+                                                 Vector3(0.00873, 5.821, math.pi))
+
+        pose_estimator = RobotPoseEstimator(Vector2(), 0., [
+            front_left_camera,
+            rear_right_camera
+        ])
+
+        self.add_component('Pose_Estimator', pose_estimator)
+
         # Feeder
-        speed_motor = WPI_CANSparkMax(20, True, False, False)
+        # Top 3 Limit
+        # Bot 4 Limit
+
+        top_limit = DigitalInput(4)
+        bot_limit = DigitalInput(3)
+
+        speed_motor = WPI_CANSparkMax(20, True, False, True)
         winch_motor = WPI_CANSparkFlex(22, True, False, False)
 
         feeder = Feeder(speed_motor=speed_motor,
-                        winch_motor=winch_motor)
+                        winch_motor=winch_motor,
+                        top_limit=top_limit,
+                        bot_limit=bot_limit)
         self.add_component('Feeder', feeder)
 
         # Indexer
         cassette_motor = WPI_CANSparkFlex(30, True, False, False)
+        pre_feeder_motor = WPI_CANSparkFlex(31, True, False, True)
 
-        indexer = Indexer(cassette_motor=cassette_motor)
+        indexer = Indexer(cassette_motor=cassette_motor, pre_feeder_motor=pre_feeder_motor)
         self.add_component('Indexer', indexer)
 
         # Shooter
-        heading_encoder_a = Encoder(DutyCycleEncoder(0), 0.)
-        heading_encoder_b = Encoder(DutyCycleEncoder(1), 0.)
+        heading_encoder_a = Encoder(DutyCycleEncoder(1), 0.)
+        heading_encoder_b = Encoder(DutyCycleEncoder(0), 0.)
         heading_motor = WPI_CANSparkMax(40, True, False, True)
-        heading_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
+        heading_pid = PID(5, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
 
-        elevation_encoder = Encoder(DutyCycleEncoder(2), 0.)
-        elevation_motor = WPI_CANSparkMax(43, True, False, True)
-        elevation_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
+        #elevation_encoder = Encoder(DutyCycleEncoder(2), 0.)
+        #elevation_motor = WPI_CANSparkMax(43, True, False, True)
+        #elevation_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
 
-        speed_motor_a = WPI_CANSparkFlex(41, True, False, True)
-        speed_motor_b = WPI_CANSparkFlex(42, True, False, False)
-        speed_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
+        speed_motor_a = WPI_CANSparkFlex(41, True, False, False)
+        speed_motor_b = WPI_CANSparkFlex(42, True, False, True)
+        #speed_pid = PID(1, 0, 0, integral_range=(-1, 1), reset_integral_on_flip=True)
 
         shooter = Shooter(heading_encoder_a=heading_encoder_a,
                           heading_encoder_b=heading_encoder_b,
                           heading_motor=heading_motor,
                           heading_pid=heading_pid,
-                          elevation_encoder=elevation_encoder,
-                          elevation_motor=elevation_motor,
-                          elevation_pid=elevation_pid,
+                          elevation_encoder=None,#elevation_encoder,
+                          elevation_motor=None,#elevation_motor,
+                          elevation_pid=None,#elevation_pid,
                           speed_motor_a=speed_motor_a,
                           speed_motor_b=speed_motor_b,
-                          speed_pid=speed_pid)
+                          speed_pid=None)#speed_pid)
         self.add_component('Shooter', shooter)
 
         # Climber
 
 
-        climber = Climber()
-        self.add_component('Climber', climber)
+        #climber = Climber()
+        #self.add_component('Climber', climber)
+
+        # Controller
+        controller = RobotController()
+        self.add_component('Controller', controller)
 
     def robotInit(self):
         super().robotInit()

@@ -4,7 +4,9 @@ from .shift import (ShiftState,
                     ShiftPeriod,
                     CurrentShiftInfo)
 from .pose import (RebuiltFieldZone,
-                   RebuiltField)
+                   RebuiltField,
+                   PoseEstimationCamera,
+                   RobotPoseEstimator)
 
 from . import subsytems
 

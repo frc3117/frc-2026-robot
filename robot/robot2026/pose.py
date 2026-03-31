@@ -9,7 +9,7 @@ import frc_ballistic_solver as ball
 from photonlibpy import PhotonPoseEstimator, PhotonCamera
 
 
-from wpimath.geometry import Translation3d, Rotation3d, Pose2d, Rotation2d, Transform3d
+from wpimath.geometry import Translation3d, Rotation3d, Pose2d, Rotation2d, Transform3d, Transform2d
 from wpimath.kinematics import SwerveDrive4Kinematics, SwerveModulePosition
 from wpimath.estimator import SwerveDrive4PoseEstimator
 from robotpy_apriltag import AprilTagFieldLayout, AprilTagField
@@ -17,6 +17,15 @@ from robotpy_apriltag import AprilTagFieldLayout, AprilTagField
 
 from typing import List
 from enum import IntEnum
+
+
+# http://photonvision-3117-{0..2}.local:5800
+
+# Cam 0: Rear right
+# pos(0.0984, 0.3215, 0.4882) rot()
+
+# Cam 1: Front left
+# pos(-0.2699, -0.1913, 0.3612) rot()
 
 
 class PoseEstimationCamera:
@@ -37,8 +46,7 @@ class PoseEstimationCamera:
             estimated_pose = self.__pose_estimator.estimateCoprocMultiTagPose(result)
             if estimated_pose is not None:
                 estimated_pose = self.__pose_estimator.estimateLowestAmbiguityPose(result)
-
-            estimator.addVisionMeasurement(estimated_pose, estimated_pose.timestampSeconds)
+                estimator.addVisionMeasurement(estimated_pose, estimated_pose.timestampSeconds)
 
 
 class RobotPoseEstimator(Component):
@@ -48,10 +56,15 @@ class RobotPoseEstimator(Component):
     __swerve_pose_estimator: SwerveDrive4PoseEstimator
 
     __initial_pose: Pose2d
-    __current_pose: Pose2d
     __current_velocity: Vector2
 
-    __pose_estimator_logic_coroutine: Coroutine
+    __current_pose: Pose2d
+    __current_pose_time: float
+
+    __previous_pose: Pose2d
+    __previous_pose_time: float
+
+    __pose_estimator_logic_coroutine: Coroutine = None
 
     def __init__(self, initial_position: Vector2, initial_heading: float, pose_camera: List[PoseEstimationCamera]):
         super().__init__()
@@ -61,25 +74,50 @@ class RobotPoseEstimator(Component):
 
     def init(self):
         self.__swerve = self.robot.get_component('Swerve')
+
+        self.__previous_pose = self.__initial_pose
+        self.__previous_pose_time = Timer.get_current_time()
+
+        self.__current_pose = self.__initial_pose
+        self.__current_pose = Timer.get_current_time()
+
         self.__swerve_pose_estimator = SwerveDrive4PoseEstimator(self.__swerve.get_swerve_4kinematics(),
                                                                  self.__swerve.get_gyro_angle2d(),
                                                                  self.__swerve.get_modules_positions4(),
                                                                  self.__initial_pose)
 
+    #def update_disabled(self):
+        #self.refresh_pose()
+
     def update(self):
-        Timer.start_coroutine_if_stopped(self.__pose_estimator_logic_loop__, self.__pose_estimator_logic_coroutine, CoroutineOrder.EARLY, ignore_stop_all=True)
+        self.__pose_estimator_logic_coroutine = Timer.start_coroutine_if_stopped(self.__pose_estimator_logic_loop__, self.__pose_estimator_logic_coroutine, CoroutineOrder.EARLY, ignore_stop_all=True)
 
     def __pose_estimator_logic_loop__(self):
-        while True:
-            for camera in self.__pose_camera:
-                camera.apply_vision_pose_estimate(self.__swerve_pose_estimator)
+        yield from ()
 
-            self.__current_pose = self.__swerve_pose_estimator.update(self.__swerve.get_gyro_angle2d(), self.__swerve.get_modules_positions4())
+        while True:
+            yield False
+
+            #self.refresh_pose()
+
+    def refresh_pose(self):
+        for camera in self.__pose_camera:
+            camera.apply_vision_pose_estimate(self.__swerve_pose_estimator)
+
+        self.__current_pose = self.__swerve_pose_estimator.update(self.__swerve.get_gyro_angle2d(),
+                                                                  self.__swerve.get_modules_positions4())
+
+        self.__previous_pose = self.__initial_pose
+        self.__previous_pose_time = Timer.get_current_time()
 
     def get_current_pose(self) -> Pose2d:
         return self.__current_pose
     def set_current_pose(self, pose: Pose2d):
         self.__swerve_pose_estimator.resetPosition(self.__swerve.get_gyro_angle2d(), self.__swerve.get_modules_positions4(), pose)
+
+    def get_current_velocity(self) -> Transform2d:
+        vel = (self.__current_pose - self.__previous_pose) / (Timer.get_current_time() - self.__previous_pose_time)
+        return vel
 
 
 class RebuiltFieldZone(IntEnum):
@@ -161,8 +199,6 @@ class RebuiltField:
             pass_left_full_field_zone,
             pass_right_full_field_zone
         ])
-
-
 
     def get_zone(self, pos: ball.Vector2) -> RebuiltFieldZone:
         zone_id = self.__field.point_zone(pos)

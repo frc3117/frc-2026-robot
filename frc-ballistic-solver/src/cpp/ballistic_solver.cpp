@@ -322,17 +322,20 @@ struct Projectile {
     float kDragCoef;          // Drag coefficient
     float kCDARho;            // Precomputed: Area * DragCoef * AirDensity
     float kMagnusCoef;        // Magnus effect coefficient
+    float kARho;
 
     Projectile() : kObjArea(0.01f), kObjMass(0.3f), kObjMomentInertia(0.001f),
-                   kAirDensity(1.225f), kDragCoef(0.47f), kMagnusCoef(0.0f) {
+                   kAirDensity(1.225f), kDragCoef(0.47f), kMagnusCoef(0.000791f) {
         this->kCDARho = kObjArea * kDragCoef * kAirDensity;
+        this->kARho = kObjArea * kAirDensity;
     }
     
     Projectile(float objArea, float objMass, float objMomentInertia,
-               float airDensity = 1.225f, float dragCoef = 0.47f, float magnusCoef = 0.0f)
+               float airDensity = 1.225f, float dragCoef = 0.47f, float magnusCoef = 0.000791f)
         : kObjArea(objArea), kObjMass(objMass), kObjMomentInertia(objMomentInertia),
           kAirDensity(airDensity), kDragCoef(dragCoef), kMagnusCoef(magnusCoef) {
         this->kCDARho = objArea * dragCoef * airDensity;
+        this->kARho = objArea * airDensity;
     }
 
     Vector3 computeDragForce(Vector3 velocity) const {
@@ -349,18 +352,32 @@ struct Projectile {
         return aeroDragForce;
     }
     
-    Vector3 computeMagnusForce(Vector3 velocity, Vector3 angularVelocity) const {
-        if (this->kMagnusCoef < 1e-6f) return Vector3();
-        
-        // F_magnus = kMagnus * (omega x v)
-        return angularVelocity.cross(velocity) * this->kMagnusCoef;
+    void computeMagnusForce(Vector3 velocity, Vector3 angularVelocity, Vector3& force, Vector3& torque) const {
+        if (this->kMagnusCoef < 1e-8f)
+            return;
+
+        float angMag = angularVelocity.magnitude();
+        if (angMag < 1e-8f)
+            return;
+
+        Vector3 liftDir = angularVelocity.cross(velocity);
+        liftDir /= liftDir.magnitude();
+
+        float velMag = velocity.magnitude();
+        float magnusCoef = kMagnusCoef * angMag;
+
+        float liftMagnitude = 0.5f * (velMag * velMag) * this->kARho * magnusCoef;
+        //Vector3 momentAngle = (angularVelocity / -angMag);
+
+        force = liftDir * liftMagnitude;
+        //torque = momentAngle * liftMagnitude * (0.02f / this->kMagnusCoef);
     }
     
-    Vector3 computeAccel(Vector3 velocity, Vector3 angularVelocity, Vector3 gravity) const {
+    /*Vector3 computeAccel(Vector3 velocity, Vector3 angularVelocity, Vector3 gravity) const {
         Vector3 drag = computeDragForce(velocity);
         Vector3 magnus = computeMagnusForce(velocity, angularVelocity);
         return gravity + (drag + magnus) / this->kObjMass;
-    }
+    }*/
 };
 
 
@@ -403,9 +420,17 @@ public:
     BallisticSimState doStepEuler() {
         // Simple Euler (less accurate but faster)
         Vector3 forceSum = m_projectile.computeDragForce(m_currentState.linearVelocity);
-        Vector3 magnusForce = m_projectile.computeMagnusForce(
-            m_currentState.linearVelocity, m_currentState.angularVelocity);
-        forceSum = forceSum + magnusForce;
+
+        Vector3 magnusForce;
+        Vector3 magnusTorque;
+
+        m_projectile.computeMagnusForce(
+            m_currentState.linearVelocity,
+            m_currentState.angularVelocity,
+            magnusForce,
+            magnusTorque);
+
+        forceSum += magnusForce;
 
         BallisticSimState newState;
         newState.time = m_currentState.time + m_dt;
@@ -442,8 +467,13 @@ private:
             deriv.position = s.linearVelocity;
             
             Vector3 force = m_projectile.computeDragForce(s.linearVelocity);
-            force = force + m_projectile.computeMagnusForce(s.linearVelocity, s.angularVelocity);
-            
+
+            Vector3 magnusForce;
+            Vector3 magnusTorque;
+            m_projectile.computeMagnusForce(s.linearVelocity, s.angularVelocity, magnusForce, magnusTorque);
+
+            force += magnusForce;
+
             deriv.linearVelocity = m_gravity + (force / m_projectile.kObjMass);
             deriv.angularVelocity = Vector3(); // No angular acceleration for now
             deriv.rotation = s.angularVelocity;
@@ -1040,15 +1070,15 @@ PYBIND11_MODULE(_core, m) {
              py::arg("obj_moment_inertia"),
              py::arg("air_density") = 1.225f,
              py::arg("drag_coef") = 0.47f,
-             py::arg("magnus_coef") = 0.0f)
+             py::arg("magnus_coef") = 0.000791f)
         .def_readwrite("OBJ_AREA", &Projectile::kObjArea)
         .def_readwrite("OBJ_MASS", &Projectile::kObjMass)
         .def_readwrite("OBJ_MOMENT_INERTIA", &Projectile::kObjMomentInertia)
         .def_readwrite("AIR_DENSITY", &Projectile::kAirDensity)
         .def_readwrite("DRAG_COEF", &Projectile::kDragCoef)
         .def_readwrite("MAGNUS_COEF", &Projectile::kMagnusCoef)
-        .def("compute_drag_force", &Projectile::computeDragForce)
-        .def("compute_magnus_force", &Projectile::computeMagnusForce);
+        .def("compute_drag_force", &Projectile::computeDragForce);
+        //.def("compute_magnus_force", &Projectile::computeMagnusForce);
 
     // BallisticSimState
     py::class_<BallisticSimState>(m, "BallisticSimState")

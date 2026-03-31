@@ -85,7 +85,7 @@ class Projectile:
                  obj_moment_inertia: float,
                  air_density: float = 1.293,
                  drag_coef: float = 0.47,
-                 magnus_coef: float = 0.): ...
+                 magnus_coef: float = 0.000791): ...
 
 
 class BallisticSimState:
