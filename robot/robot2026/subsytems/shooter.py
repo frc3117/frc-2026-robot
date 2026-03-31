@@ -28,7 +28,6 @@ RPM_2_MPS = 0.001
 MIN_HARDSTOP_TURN = 0.27
 MAX_HARDSTOP_TURN = 1.64
 
-
 MIN_TURN = -0.7632
 MAX_TURN = 1.7632
 RANGE_TURN = MAX_TURN - MIN_TURN
@@ -36,7 +35,6 @@ RANGE_TURN = MAX_TURN - MIN_TURN
 MIN_ANGLE = 0.
 MAX_ANGLE = 4. * math.pi
 RANGE_ANGLE = MAX_ANGLE - MIN_ANGLE
-
 
 TURRET_LOCAL_POS = Vector3()
 
@@ -210,8 +208,8 @@ class Shooter(Component):
 
             # Speed
             if self.__is_shooting:
-                self.__speed_motor_a.set(0.5)
-                self.__speed_motor_b.set(0.5)
+                self.__speed_motor_a.set(self.__target_speed)
+                self.__speed_motor_b.set(self.__target_speed)
             else:
                 self.__speed_motor_a.set(0.)
                 self.__speed_motor_b.set(0.)
@@ -276,7 +274,7 @@ class Shooter(Component):
     def current_speed_raw(self) -> float:
         return self.__current_speed_raw
 
-    def set_target_speed(self, speed: float):
+    def set_shooter_speed(self, speed: float):
         self.__target_speed = speed
     def get_target_speed(self) -> float:
         return self.__target_speed

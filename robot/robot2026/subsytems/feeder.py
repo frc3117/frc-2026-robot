@@ -16,13 +16,10 @@ class Feeder(Component):
     __winch_top_limit: DigitalInput
     __winch_motor: WPI_CANSparkFlex
 
-    __speed_motor_output: float = 0.8
+    __intake_motor_speed: float = 0.
 
     __should_be_retracted = True
     __is_feeding: bool = False
-
-    __temp_input: Input
-    __temp_input_neg: Input
 
     __controll_loop: Coroutine = None
 
@@ -37,10 +34,6 @@ class Feeder(Component):
         self.__winch_motor = winch_motor
         self.__winch_top_limit = top_limit
         self.__winch_bottom_limit = bot_limit
-
-    def init(self):
-        self.__temp_input = Input.get_input('idle')
-        self.__temp_input_neg = Input.get_input('souffleuse')
 
     def update(self):
         self.__controll_loop = Timer.start_coroutine_if_stopped(self.__control_loop__, self.__controll_loop, CoroutineOrder.LATE)
@@ -70,7 +63,7 @@ class Feeder(Component):
             self.__winch_motor.set(clamp(winch_target, min_winch, max_winch) * 0.6)
 
             if self.__is_feeding and self.is_expended():
-                self.__speed_motor.set(self.__speed_motor_output)
+                self.__speed_motor.set(self.__intake_motor_speed)
             else:
                 self.__speed_motor.set(0.)
 
@@ -79,6 +72,9 @@ class Feeder(Component):
 
         while True:
             yield False
+
+    def set_intake_speed(self, speed: float):
+        self.__intake_motor_speed = speed
 
     def start_feeding(self):
         self.__is_feeding = True
@@ -119,7 +115,7 @@ class Feeder(Component):
         def set_speed_motor_output(v: float):
             self.__speed_motor_output = v
 
-        builder.addDoubleProperty('speed/motor_output', lambda: self.__speed_motor_output, set_speed_motor_output)
+        builder.addDoubleProperty('speed/motor_output', lambda: self.__intake_motor_speed, set_speed_motor_output)
 
         builder.addBooleanProperty('winch/top_limit', self.is_retracted, lambda v: None)
         builder.addBooleanProperty('winch/bot_limit', self.is_expended, lambda v: None)

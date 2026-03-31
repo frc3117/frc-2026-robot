@@ -335,3 +335,14 @@ class RobotController(Component):
 
     def set_climbing_mode(self):
         self.__requested_mode = RobotMode.CLIMB
+
+    def __set_output_speed__(self, speed: float):
+        intake_speed = 0.8
+        cassette_speed = 1.
+        pre_feeder_speed = 0.65
+        shooter_speed = 0.5
+
+        self.__feeder.set_intake_speed(intake_speed)
+        self.__indexer.set_cassette_speed(cassette_speed)
+        self.__indexer.set_pre_feeder_speed(pre_feeder_speed)
+        self.__shooter.set_shooter_speed(shooter_speed)
