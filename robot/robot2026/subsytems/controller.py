@@ -250,7 +250,7 @@ class RobotController(Component):
             sol = solver.solve(robot_pos, robot_vel)
             if sol.valid:
                 self.__shooter.set_target_heading(sol.heading)
-                self.__shooter.set_target_speed(sol.speed)
+                self.__shooter.set_shooter_speed(sol.speed)
                 self.__shooter.set_target_elevation(sol.elevation)
 
         yield from ()
@@ -300,6 +300,8 @@ class RobotController(Component):
             self.__feeder.set_feeding(souffleuse_state)
             self.__indexer.set_indexing(souffleuse_state)
             self.__shooter.set_shooting(souffleuse_state)
+
+            #self.__set_output_speed__(1)
 
             if souffleuse_state:
                 self.__swerve.set_speed(0.5)

@@ -70,6 +70,7 @@ class Shooter(Component):
 
     __current_heading_raw: float = math.nan
     __current_heading: float = 0.
+    __current_heading_world: float = 0.
     __target_heading: float = 0.
     __target_heading_field_relative: bool = False
 
@@ -159,7 +160,7 @@ class Shooter(Component):
         #self.__evaluate_current_speed()
 
     def update(self):
-        self.__evaluate_current_heading()
+        self.__evaluate_current_heading(True)
         #self.__evaluate_current_elevation()
         #self.__evaluate_current_speed()
 
@@ -170,11 +171,11 @@ class Shooter(Component):
             yield False
 
             # Heading
-            current_heading_norm = self.__current_heading
             if self.__target_heading_field_relative:
-                current_heading_norm += (self.__swerve.get_heading() / math.tau)
+                current_heading_norm = self.__current_heading_world
+            else:
+                current_heading_norm = self.__current_heading
 
-            current_heading_norm = repeat(current_heading_norm, 1)
             # else:
             # current_heading_norm = 0.7632
 
@@ -228,32 +229,38 @@ class Shooter(Component):
         else:
             self.__current_heading = instant_heading
 
+        self.__current_heading_world = repeat(self.__current_heading + (self.__swerve.get_heading() / math.tau), 1)
+
     def __evaluate_current_elevation(self):
         self.__current_elevation_raw = self.__elevation_encoder.get_raw()
         self.__current_elevation = self.__elevation_encoder.get()
 
     def __evaluate_current_speed(self):
-        self.__current_speed_raw = (self.__speed_motor_a.get() + self.__speed_motor_b.get() / 2.)
+        self.__current_speed_raw = (self.__speed_motor_a.get() + self.__speed_motor_b.get()) / 2.
         self.__current_speed = self.__current_speed_raw * RPM_2_MPS
-
-    def recenter(self, angle=0):
-        pass
 
     def current_heading(self) -> float:
         return self.__current_heading
     def current_heading_raw(self) -> float:
         return self.__current_heading_raw
 
+    def current_heading_world(self) -> float:
+        return self.__current_heading_world
+
     def hold_heading_(self):
-        self.set_target_heading(self.__current_heading, True)
-    def set_target_heading_angle(self, heading: float, field_relative: bool):
+        self.set_target_field_heading(self.__current_heading_world)
+
+    def set_target_field_heading(self, heading: float):
+        self.set_target_heading(heading, True)
+
+    def set_target_heading_angle(self, heading: float, field_relative: bool = True):
         self.__target_heading_field_relative = field_relative
         self.__set_target_heading_internal__(__angle_to_turn__(heading))
     def set_target_heading(self, heading: float, field_relative: bool = True):
         self.__target_heading_field_relative = field_relative
-        turn = __normalize_turn__(heading)
+        #turn = __normalize_turn__(heading)
 
-        self.__set_target_heading_internal__(turn)
+        self.__set_target_heading_internal__(heading)
     def __set_target_heading_internal__(self, heading: float):
         self.__target_heading = repeat(heading, 1)
     def get_target_heading(self) -> float:
@@ -280,11 +287,14 @@ class Shooter(Component):
         return self.__target_speed
 
     def start_shooting(self):
-        self.__is_shooting = True
-        self.set_target_heading(self.__current_heading)
+        if not self.__is_shooting:
+            self.__is_shooting = True
+            self.hold_heading_()
 
     def stop_shooting(self):
-        self.__is_shooting = False
+        if self.__is_shooting:
+            self.__is_shooting = False
+            self.set_target_heading(self.__current_heading, False)
 
     def set_shooting(self, state: bool):
         if state:
@@ -308,6 +318,7 @@ class Shooter(Component):
 
         builder.addDoubleProperty("heading_raw", self.current_heading_raw, lambda v: None)
         builder.addDoubleProperty("heading", self.current_heading, lambda v: None)
+        builder.addDoubleProperty("heading_world", self.current_heading_world, lambda v: None)
         builder.addDoubleProperty("target_heading", self.get_target_heading, lambda v: self.set_target_heading(v))
 
         # Elevation
