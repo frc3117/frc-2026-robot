@@ -129,6 +129,14 @@ class RobotController(Component):
         self.__souffleuse_button = Input.get_input('souffleuse')
         self.__climb_button = Input.get_input('climb')
 
+        # 2 Driver init button (Manuel)
+        self.__toggle_manuel = Input.get_input('ToggleManuel')
+        self.__manuelshooter = Input.get_input('ManuelShooterPreFeeder')
+        self.__manuelsouffleur = Input.get_input('ManuelSouffleurCassette')
+
+        self.__manuelshooterspeed = Input.get_input('ManuelShooterSpeed')
+        self.__manuelspinturret = Input.get_input('ManuelSpinningTurret')
+
         #self.__pose_estimator = self.robot.get_component('Pose_Estimator')
         self.__feeder = self.robot.get_component('Feeder')
         self.__indexer = self.robot.get_component('Indexer')

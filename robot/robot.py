@@ -74,6 +74,33 @@ class Robot(RobotBase):
         Input.add_button('souffleuse', 0, XboxControllerInput.A)
         Input.add_button('climb', 0, XboxControllerInput.Y)
 
+        # Second Driver Inputs 
+
+        Input.add_button('ToggleManuel', 1, XboxControllerInput.Y)
+        Input.add_button('ManuelShooterPreFeeder', 1, XboxControllerInput.A)
+        Input.add_button('ManuelSouffleurCassette', 1, XboxControllerInput.B)
+
+        Input.add_axis('ManuelShooterSpeed',
+                       1,
+                       XboxControllerInput.LEFT_JOYSTICK_Y,
+                       inverted=True,
+                       deadzone=0.02,
+                       # axis_filter=SlewRateLimiter(600),
+                       axis_transform=PowerTransform(1))
+        
+        Input.create_composite_axis('ManuelSpinningTurret',
+                                    positive=Input.add_axis('ManuelTurnRight',
+                                                            1,
+                                                            XboxControllerInput.RIGHT_TRIGGER,
+                                                            deadzone=0.02,
+                                                            axis_transform=PowerTransform(1)),
+                                    negative=Input.add_axis('ManuelTurnLeft',
+                                                            1,
+                                                            XboxControllerInput.LEFT_TRIGGER,
+                                                            deadzone=0.02,
+                                                            axis_transform=PowerTransform(1)),
+                                    )
+
     def register_subsystems(self):
         # Swerve
 
