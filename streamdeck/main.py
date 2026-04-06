@@ -1,5 +1,5 @@
 from frctools.streamdeck import StreamDeckBoard
-from frctools.streamdeck.keys import StreamDeckKeyBool
+from frctools.streamdeck.keys import StreamDeckKeyBool, StreamDeckKeyDouble
 
 from frc_streamdeck import ReefSelector, build_random_message_panel
 
@@ -17,16 +17,18 @@ nt.setServer('10.31.17.2', ntcore.NetworkTableInstance.kDefaultPort4)
 board = StreamDeckBoard()
 
 # Add the is connected key to the top right
-board.set_key((7, 3), StreamDeckKeyBool(label='Is Connected', true_img='green', false_img='red').bind_nt_connected())
+Connected = board.set_key((7, 3), StreamDeckKeyBool(label='Is Connected', true_img='green', false_img='red').bind_nt_connected())
 
-board.set_key((3, 2), StreamDeckKeyBool(label='Elevator at Height', true_img='red', false_img='gray').bind_nt('/SmartDashboard/Elevator/at_height'))
-board.set_key((4, 2), StreamDeckKeyBool(label='Climb Prox', true_img='red', false_img='gray').bind_nt('/SmartDashboard/Climber/has_cage'))
+Feeder_Bot = board.set_key((4, 2), StreamDeckKeyBool(label='Feeder Bottom Limit', true_img='DarkGreen', false_img='gray').bind_nt('/SmartDashboard/Feeder/winch/bot_limit'))
+Feeder_Top = board.set_key((4, 3), StreamDeckKeyBool(label='Feeder Top Limit', true_img='DeepSkyBlue', false_img='gray').bind_nt('/SmartDashboard/Feeder/winch/top_limit'))
+
+Shooter_Heading = board.set_key((3, 3), StreamDeckKeyDouble(label='Shooter Heading', background='green').bind_nt('/SmartDashboard/Shooter/heading'))
 
 #board.set_key((3, 2), StreamDeckKeyBool(label='conveyor prox', true_img='red', false_img='gray').bind_nt('/SmartDashboard/Conveyor/has_coral'))
 #board.set_key((4, 2), StreamDeckKeyBool(label='outtake prox', true_img='red', false_img='gray').bind_nt('/SmartDashboard/CoralOuttake/has_coral'))
 
 # Add the reef selector to the left
-reef = ReefSelector(board)
+#reef = ReefSelector(board)
 
 # Random roast panel: 3x3 coordinate-driven layout, order-independent mapping
 messages_file = Path(__file__).with_name('messages.txt')
