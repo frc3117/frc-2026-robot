@@ -50,6 +50,8 @@ class ChoreoSwerveSequence(AutonomousSequence):
 
     def __init__(self,
                  traj_name: str,
+                 max_vxy: float,
+                 max_vomega: float,
                  reset_pose: bool = True,
                  kP_xy: float = 1.4,
                  kP_theta: float = 2.0,
@@ -89,9 +91,9 @@ class ChoreoSwerveSequence(AutonomousSequence):
         self._duration = 0.0
         self._is_mirrored = False
 
-        self._max_vx = 1.0
-        self._max_vy = 1.0
-        self._max_omega = 1.0
+        self._max_vx = max_vxy
+        self._max_vy = max_vxy
+        self._max_omega = max_vomega
 
         self._swerve: SwerveDrive | None = None
         self._pose_estimator = None
@@ -277,22 +279,9 @@ class ChoreoSwerveSequence(AutonomousSequence):
             self._samples = [self._mirror_sample_for_red(s, field_length, field_width) for s in self._samples]
 
         self._duration = self._samples[-1].t if len(self._samples) > 0 else 0.0
-        auto_max_vx = max(1e-6, max(abs(s.vx) for s in self._samples))
-        auto_max_vy = max(1e-6, max(abs(s.vy) for s in self._samples))
-        auto_max_omega = max(self._min_omega_norm, max(abs(s.omega) for s in self._samples))
-
-        if self._user_vmax is not None:
-            user_v = max(1e-6, abs(self._user_vmax))
-            self._max_vx = user_v
-            self._max_vy = user_v
-        else:
-            self._max_vx = auto_max_vx
-            self._max_vy = auto_max_vy
-
-        if self._user_omega_max is not None:
-            self._max_omega = max(1e-6, abs(self._user_omega_max))
-        else:
-            self._max_omega = auto_max_omega
+        #self._max_vx = max(1e-6, max(abs(s.vx) for s in self._samples))
+        #self._max_vy = max(1e-6, max(abs(s.vy) for s in self._samples))
+        #self._max_omega = max(1e-6, max(abs(s.omega) for s in self._samples))
 
         self._events = []
         for e in data.get('events', []):
