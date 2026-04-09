@@ -50,6 +50,8 @@ class ChoreoSwerveSequence(AutonomousSequence):
 
     def __init__(self,
                  traj_name: str,
+                 max_vxy: float,
+                 max_vomega: float,
                  reset_pose: bool = True,
                  kP_xy: float = 1.4,
                  kP_theta: float = 2.0,
@@ -69,9 +71,9 @@ class ChoreoSwerveSequence(AutonomousSequence):
         self._events: list[_ChoreoEvent] = []
         self._duration = 0.0
 
-        self._max_vx = 1.0
-        self._max_vy = 1.0
-        self._max_omega = 1.0
+        self._max_vx = max_vxy
+        self._max_vy = max_vxy
+        self._max_omega = max_vomega
 
         self._swerve: SwerveDrive | None = None
         self._pose_estimator = None
@@ -243,9 +245,9 @@ class ChoreoSwerveSequence(AutonomousSequence):
         ]
 
         self._duration = self._samples[-1].t if len(self._samples) > 0 else 0.0
-        self._max_vx = max(1e-6, max(abs(s.vx) for s in self._samples))
-        self._max_vy = max(1e-6, max(abs(s.vy) for s in self._samples))
-        self._max_omega = max(1e-6, max(abs(s.omega) for s in self._samples))
+        #self._max_vx = max(1e-6, max(abs(s.vx) for s in self._samples))
+        #self._max_vy = max(1e-6, max(abs(s.vy) for s in self._samples))
+        #self._max_omega = max(1e-6, max(abs(s.omega) for s in self._samples))
 
         self._events = []
         for e in data.get('events', []):

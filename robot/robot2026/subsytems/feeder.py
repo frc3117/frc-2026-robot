@@ -60,7 +60,7 @@ class Feeder(Component):
             else:
                 winch_target = 1
 
-            #self.__winch_motor.set(clamp(winch_target, min_winch, max_winch) * 0.6)
+            self.__winch_motor.set(clamp(winch_target, min_winch, max_winch) * 0.6)
 
             if self.__is_feeding and self.is_expended():
                 self.__speed_motor.set(self.__intake_motor_speed)

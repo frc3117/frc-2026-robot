@@ -3,6 +3,7 @@ import math
 from frctools import Component, CoroutineOrder, Coroutine, Timer, Alliance
 from frctools.input import Input
 from frctools.drivetrain import SwerveDrive
+from frctools.frcmath import inverse_lerp, lerp, clamp
 
 import frc_ballistic_solver as bal
 
@@ -236,8 +237,8 @@ class RobotController(Component):
             yield from ()
 
             # Extend and Start Feeder
-            #self.__feeder.set_expended()
-            #yield from self.__feeder.wait_until_expended()
+            self.__feeder.set_expended()
+            yield from self.__feeder.wait_until_expended()
 
             #self.__feeder.start_feeding()
             #self.__indexer.start_indexing()
@@ -275,8 +276,8 @@ class RobotController(Component):
 
             self.__swerve.set_speed(1)
 
-            #self.__feeder.set_retracted()
-            #yield from self.__feeder.wait_until_retracted()
+            self.__feeder.set_retracted()
+            yield from self.__feeder.wait_until_retracted()
 
         def souffleuse_to_climb_transition():
             yield from ()
@@ -295,6 +296,8 @@ class RobotController(Component):
 
         def try_apply_turret_target(target: AimTarget, robot_pos, robot_vel):
             if target is None:
+                self.__shooter.set_shooter_speed(0.)
+                self.__shooter.set_target_elevation(0.)
                 return
 
             self.__pose_estimator.set_aim_target(target.pose)
@@ -307,14 +310,18 @@ class RobotController(Component):
                 heading = (math.atan2(aim_dir.y, aim_dir.x) + 0.5 * math.pi) / math.tau
 
                 elevation = (0.5 * math.pi) - sol.elevation
-                if Timer.get_frame_count() % 100:
-                    print(elevation)
 
                 self.__shooter.set_target_heading(heading)
                 SmartDashboard.putNumber('target_heading', heading)
                 SmartDashboard.putNumber('target_speed', sol.speed)
                 self.__shooter.set_shooter_speed(math.pow(sol.speed, 1.02))
-                self.__shooter.set_target_elevation(math.pow(elevation, 0.9))
+
+                elevation = clamp(elevation, 0.25, 0.707)
+                ilerp_elevation = inverse_lerp(0.25, 0.707, elevation)
+                ilerp_elevation = math.pow(ilerp_elevation, 0.85)
+
+                elevation = lerp(0.25, 0.707, ilerp_elevation)
+                self.__shooter.set_target_elevation(elevation)
 
         yield from ()
 
