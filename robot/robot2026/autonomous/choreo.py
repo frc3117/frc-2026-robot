@@ -401,12 +401,18 @@ class ChoreoSwerveSequence(AutonomousSequence):
             omega=self._lerp(a.omega, b.omega, k),
             x=self._lerp(a.x, b.x, k),
             y=self._lerp(a.y, b.y, k),
-            heading=self._lerp(a.heading, b.heading, k),
+            heading=self._lerp_angle(a.heading, b.heading, k),
         )
 
     @staticmethod
     def _lerp(a: float, b: float, t: float) -> float:
         return a + (b - a) * t
+
+    @staticmethod
+    def _lerp_angle(a: float, b: float, t: float) -> float:
+        # Interpolate using shortest angular distance to avoid -pi/+pi jumps.
+        d = math.atan2(math.sin(b - a), math.cos(b - a))
+        return math.atan2(math.sin(a + d * t), math.cos(a + d * t))
 
     @staticmethod
     def _clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
