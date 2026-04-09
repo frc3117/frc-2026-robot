@@ -1,9 +1,11 @@
+from collections import deque
+
 import math
 
 
 from frctools import Component, WPI_CANSparkMax, WPI_CANSparkFlex, Timer, CoroutineOrder
 from frctools.sensor import Encoder
-from frctools.frcmath import clamp, repeat, SlewRateLimiter, remap
+from frctools.frcmath import clamp, repeat, SlewRateLimiter, remap, Vector2 as v2
 from frctools.controll import PID
 from frctools.drivetrain import SwerveDrive
 
@@ -11,11 +13,18 @@ from frctools.drivetrain import SwerveDrive
 from frc_ballistic_solver import CRT, CRTEncoder, Vector3, Vector2
 
 
+from ..pose import RobotPoseEstimator
+
 from wpiutil import SendableBuilder
 from wpilib import SmartDashboard
+from wpimath.filter import LinearFilter
+from wpimath.geometry import Pose2d
 
 
-RPM_2_MPS = 0.001
+# ((2 * pi * r) / 60) * 2
+# RPM = v /
+SHOOTER_WHEEL_RADIUS = 0.047625
+MPS_TO_RPM = ((math.pi * SHOOTER_WHEEL_RADIUS) / 60) * 0.9
 
 # 0.25 Hard-Min
 # 1.66 -> Hard-Max
@@ -25,8 +34,11 @@ RPM_2_MPS = 0.001
 # 4pi rad -> 1.7632 turn
 
 
-MIN_HARDSTOP_TURN = 0.27
-MAX_HARDSTOP_TURN = 1.64
+# Arrow on bolt angle 1.012
+
+
+MIN_HARDSTOP_TURN = 0.29
+MAX_HARDSTOP_TURN = 1.73
 
 MIN_TURN = -0.7632
 MAX_TURN = 1.7632
@@ -36,7 +48,46 @@ MIN_ANGLE = 0.
 MAX_ANGLE = 4. * math.pi
 RANGE_ANGLE = MAX_ANGLE - MIN_ANGLE
 
-TURRET_LOCAL_POS = Vector3()
+TURRET_LOCAL_POS = Vector3(-0.12, 0.19, 0.4)
+#TURRET_LOCAL_POS = Vector3(0.19, -0.12, 0.4)
+
+
+ELEVATION_MIN = 0.372 - 0.122
+ELEVATION_MAX = 0.829 - 0.122
+
+
+ELEVATION_MIN_HARDSTOP = 0.385 - 0.122
+ELEVATION_MAX_HARDSTOP = 0.82 - 0.122
+
+
+class AngleFilter:
+    def __init__(self, count: int):
+        self.__buffer = deque(maxlen=count)
+        self.__value = 0.
+
+    def reset(self):
+        self.__buffer.clear()
+        self.__value = 0.
+
+    def evaluate(self, value: float) -> float:
+        vec = v2(math.cos(value), math.sin(value))
+        self.__buffer.append(vec)
+
+        vec_sum = v2()
+        for v in self.__buffer:
+            vec_sum += v
+
+        vec_avg = vec_sum / float(len(self.__buffer))
+        self.__value = math.atan2(vec_avg.y, vec_avg.x)
+
+        return self.__value
+
+    def value(self) -> float:
+        return self.__value
+
+
+def __elevation_encoder_to_angle__(val: float) -> float:
+    return 0.372 + ((val - 0.01) * math.tau) - 0.122
 
 
 def __normalize_angle__(angle: float) -> float:
@@ -48,12 +99,12 @@ def __normalize_turn__(turn: float) -> float:
 
 
 def __angle_to_turn__(angle: float) -> float:
-    angle = __normalize_angle__(angle)
+    #angle = __normalize_angle__(angle)
     return remap(MIN_ANGLE, MAX_ANGLE, MIN_TURN, MAX_TURN, angle)
 
 
-def __turn_to_angle(turn: float) -> float:
-    turn = __normalize_turn__(turn)
+def __turn_to_angle__(turn: float) -> float:
+    #turn = __normalize_turn__(turn)
     return remap(MIN_TURN, MAX_TURN, MIN_ANGLE, MAX_ANGLE, turn)
 
 
@@ -98,10 +149,12 @@ class Shooter(Component):
     __is_shooting: bool = False
 
     __limiter: SlewRateLimiter
+    __robot_heading_filter: AngleFilter
 
     __control_loop = None
 
     __swerve: SwerveDrive
+    __pose: RobotPoseEstimator
 
     def __init__(self,
                  heading_encoder_a: Encoder,
@@ -127,6 +180,7 @@ class Shooter(Component):
         self.__crt_heading = CRT(self.__crt_heading_encoder_a, self.__crt_heading_encoder_b, 207)
 
         self.__limiter = SlewRateLimiter(4)
+        self.__robot_heading_filter = AngleFilter(1)
 
         # Elevation
         self.__elevation_encoder = elevation_encoder
@@ -139,11 +193,17 @@ class Shooter(Component):
         self.__speed_pid = speed_pid
 
         SmartDashboard.putData('Shooter/heading/pid', self.__heading_pid)
+        SmartDashboard.putData('Shooter/elevation/pid', self.__elevation_pid)
+        SmartDashboard.putData('Shooter/speed/pid', self.__speed_pid)
+
         #SmartDashboard.putData('Shooter/elevation/pid', self.__elevation_pid)
-        #SmartDashboard.putData('Shooter/speed/pid', self.__speed_pid)
+
 
     def init(self):
         self.__swerve = self.robot.get_component('Swerve')
+        self.__pose = self.robot.get_component('Pose_Estimator')
+
+        self.__robot_heading_filter.reset()
 
         self.__current_heading_raw = math.nan
         self.__evaluate_current_heading(False)
@@ -151,24 +211,26 @@ class Shooter(Component):
         self.set_target_heading(self.__current_heading, False)
         self.__limiter.last_value = self.__current_heading
 
-        #self.__current_elevation_raw = math.nan
-        #self.__evaluate_current_elevation()
+        self.__evaluate_current_elevation()
+        self.set_target_elevation(self.__current_elevation)
 
     def update_disabled(self):
         self.__evaluate_current_heading(False)
-        #self.__evaluate_current_elevation()
-        #self.__evaluate_current_speed()
+        self.__evaluate_current_elevation()
+        self.__evaluate_current_speed()
 
     def update(self):
         self.__evaluate_current_heading(True)
-        #self.__evaluate_current_elevation()
-        #self.__evaluate_current_speed()
+        self.__evaluate_current_elevation()
+        self.__evaluate_current_speed()
 
         self.__control_loop = Timer.start_coroutine_if_stopped(self.__control_loop__, self.__control_loop, CoroutineOrder.LATE)
 
     def __control_loop__(self):
         while True:
             yield False
+
+            #self.set_target_elevation(remap(-1, 1, ELEVATION_MIN_HARDSTOP, ELEVATION_MAX_HARDSTOP, math.sin(7.5 * Timer.get_current_time())))
 
             # Heading
             if self.__target_heading_field_relative:
@@ -202,18 +264,29 @@ class Shooter(Component):
                     heading_error = error_up
 
             # heading_error = self.__target_heading - self.__current_heading
+            #heading_error = abs(heading_error) * (heading_error / (abs(heading_error) + 0.015))
             heading_output = self.__heading_pid.evaluate(heading_error)
             self.__heading_motor.set(clamp(heading_output, -0.55, 0.55))
 
             # Elevation
+            elevation_error = self.__target_elevation - self.__current_elevation
+
+            elevation_output = self.__elevation_pid.evaluate(elevation_error)
+            self.__elevation_motor.set(clamp(elevation_output, -0.6, 0.6))
 
             # Speed
             if self.__is_shooting:
-                self.__speed_motor_a.set(self.__target_speed)
-                self.__speed_motor_b.set(self.__target_speed)
+                speed_error = self.__target_speed - self.__current_speed
+
+                speed_output = self.__speed_pid.evaluate(speed_error, feed_forward=self.__target_speed)
+                speed_output = max(-0.25, speed_output)
+
+                self.__speed_motor_a.set_voltage(speed_output)
+                self.__speed_motor_b.set_voltage(speed_output)
             else:
                 self.__speed_motor_a.set(0.)
                 self.__speed_motor_b.set(0.)
+                self.__speed_pid.reset_integral()
 
     def __evaluate_current_heading(self, with_limiter: bool = True):
         self.__crt_heading_encoder_a.set_angle01(self.__heading_encoder_a.get())
@@ -229,15 +302,18 @@ class Shooter(Component):
         else:
             self.__current_heading = instant_heading
 
-        self.__current_heading_world = repeat(self.__current_heading + (self.__swerve.get_heading() / math.tau), 1)
+        self.__current_heading_world = repeat(self.__current_heading + (-self.__swerve.get_heading() / math.tau), 1)
+
+        self.__current_heading_world = self.__robot_heading_filter.evaluate((self.__current_heading * math.tau) - 0.1 + self.__pose.get_current_pose().rotation().radians())
+        self.__current_heading_world = repeat(self.__current_heading_world / math.tau + 0.5, 1.)
 
     def __evaluate_current_elevation(self):
         self.__current_elevation_raw = self.__elevation_encoder.get_raw()
-        self.__current_elevation = self.__elevation_encoder.get()
+        self.__current_elevation = __elevation_encoder_to_angle__(self.__elevation_encoder.get())
 
     def __evaluate_current_speed(self):
-        self.__current_speed_raw = (self.__speed_motor_a.get() + self.__speed_motor_b.get()) / 2.
-        self.__current_speed = self.__current_speed_raw * RPM_2_MPS
+        self.__current_speed_raw = self.__speed_motor_a.get()
+        self.__current_speed = self.__current_speed_raw
 
     def current_heading(self) -> float:
         return self.__current_heading
@@ -246,6 +322,9 @@ class Shooter(Component):
 
     def current_heading_world(self) -> float:
         return self.__current_heading_world
+
+    def current_heading_world_angle(self) -> float:
+        return __turn_to_angle__(self.__current_heading_world)
 
     def hold_heading_(self):
         self.set_target_field_heading(self.__current_heading_world)
@@ -272,7 +351,7 @@ class Shooter(Component):
         return self.__current_elevation_raw
 
     def set_target_elevation(self, elevation: float):
-        self.__target_elevation = elevation
+        self.__target_elevation = clamp(elevation, ELEVATION_MIN_HARDSTOP, ELEVATION_MAX_HARDSTOP)
     def get_target_elevation(self) -> float:
         return self.__target_elevation
 
@@ -282,14 +361,14 @@ class Shooter(Component):
         return self.__current_speed_raw
 
     def set_shooter_speed(self, speed: float):
-        self.__target_speed = speed
+        self.__target_speed = speed / MPS_TO_RPM
     def get_target_speed(self) -> float:
         return self.__target_speed
 
     def start_shooting(self):
         if not self.__is_shooting:
             self.__is_shooting = True
-            self.hold_heading_()
+            self.set_target_heading(self.__current_heading, False)
 
     def stop_shooting(self):
         if self.__is_shooting:
@@ -322,13 +401,13 @@ class Shooter(Component):
         builder.addDoubleProperty("target_heading", self.get_target_heading, lambda v: self.set_target_heading(v))
 
         # Elevation
-        #builder.addDoubleProperty("elevation/encoder", self.current_elevation, lambda v: None)
-        #builder.addDoubleProperty("elevation/encoder_raw", self.current_elevation_raw, lambda v: None)
-        #builder.addDoubleProperty("elevation/target", self.get_target_elevation, self.set_target_elevation)
+        builder.addDoubleProperty("elevation/encoder", self.current_elevation, lambda v: None)
+        builder.addDoubleProperty("elevation/encoder_raw", self.current_elevation_raw, lambda v: None)
+        builder.addDoubleProperty("elevation/target", self.get_target_elevation, self.set_target_elevation)
 
         # Speed
-        #builder.addDoubleProperty("speed/encoder", self.current_speed, lambda v: None)
+        builder.addDoubleProperty("speed/encoder", self.current_speed, lambda v: None)
         #builder.addDoubleProperty("speed/encoder_raw", self.current_elevation_raw, lambda v: None)
-        #builder.addDoubleProperty("speed/target", self.get_target_speed, self.set_target_speed)
+        builder.addDoubleProperty("speed/target", self.get_target_speed, self.set_shooter_speed)
 
-        # builder.addDoubleProperty("speedRatio", lambda: self.__speed_ratio, set_speed_ratio)
+        #builder.addDoubleProperty("speedRatio", lambda: self.__speed_ratio, set_speed_ratio)

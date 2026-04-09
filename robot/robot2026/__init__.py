@@ -8,7 +8,7 @@ from .pose import (RebuiltFieldZone,
                    PoseEstimationCamera,
                    RobotPoseEstimator)
 
-from . import subsytems
+from . import subsytems, constants
 
 
 __all__ = [
@@ -19,5 +19,6 @@ __all__ = [
     'CurrentShiftInfo',
     'RebuiltFieldZone',
     'RebuiltField',
-    'subsytems'
+    'subsytems',
+    'constants'
 ]

@@ -5,8 +5,8 @@ class Indexer(Component):
     __cassette_motor: WPI_CANSparkFlex
     __pre_feeder_motor: WPI_CANSparkFlex
 
-    __cassette_motor_speed: float = 0.
-    __pre_feeder_motor_speed: float = 0.
+    __cassette_motor_speed: float = .5
+    __pre_feeder_motor_speed: float = 0.65
 
     __is_indexing: bool = False
 

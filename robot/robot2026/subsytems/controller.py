@@ -1,6 +1,6 @@
 import math
 
-from frctools import Component, CoroutineOrder, Coroutine, Timer
+from frctools import Component, CoroutineOrder, Coroutine, Timer, Alliance
 from frctools.input import Input
 from frctools.drivetrain import SwerveDrive
 
@@ -13,14 +13,82 @@ from .shooter import Shooter
 from ..pose import RobotPoseEstimator, RebuiltField, RebuiltFieldZone
 
 
+from wpilib import SmartDashboard, FieldObject2d
+from wpimath.geometry import Pose2d, Pose3d, Rotation3d
+
+
 from enum import IntEnum
 
 
 SOLVER_SAMPLE_COUNT = 25
 SOLVER_DT = 0.01
-SOLVER_REFINEMENT = 3
+SOLVER_REFINEMENT = 0
 SOLVER_CONVERGENCE_THRESHOLD = 0.03
-SOLVER_MAGNUS_RATIO = 1.
+SOLVER_MAGNUS_RATIO = -1.2
+
+
+FUEL_PROJECTILE = bal.Projectile(0.0176, 0.227, 0.0008625, magnus_coef=0.000791)
+
+
+TOP_POS = 8.082
+RIGHT_POS = 16.535
+
+
+def mirror_pose(ref: Pose3d, mirror_x: bool, mirror_y: bool) -> Pose3d:
+    if mirror_x:
+        x = RIGHT_POS - ref.x
+    else:
+        x = ref.x
+
+    if mirror_y:
+        y = TOP_POS - ref.y
+    else:
+        y = ref.y
+
+    return Pose3d(x, y, 0, Rotation3d(0, 0, 0))
+
+
+# Blue Target Pose
+BLUE_HUB_TARGET_POSE = Pose3d(4.6228, 4.041, 1.588, Rotation3d(0, 0, 0))
+BLUE_BOT_PASS_TARGET_POSE = Pose3d(1.5, 1.5, 0, Rotation3d(0, 0, 0))
+BLUE_TOP_PASS_TARGET_POSE = mirror_pose(BLUE_BOT_PASS_TARGET_POSE, False, True)
+BLUE_BOT_MID_PASS_TARGET_POSE = Pose3d(9.5, 1., 0, Rotation3d(0, 0, 0))
+BLUE_TOP_MID_PASS_TARGET_POSE = mirror_pose(BLUE_BOT_MID_PASS_TARGET_POSE, False, True)
+
+# Red Target Pose
+RED_HUB_TARGET_POSE = Pose3d(11.913, 4.041, 1.588, Rotation3d(0, 0, 0))
+RED_TOP_PASS_TARGET_POSE = mirror_pose(BLUE_BOT_PASS_TARGET_POSE, True, False)
+RED_BOT_PASS_TARGET_POSE = mirror_pose(BLUE_BOT_PASS_TARGET_POSE, True, True)
+RED_TOP_MID_PASS_TARGET_POSE = mirror_pose(BLUE_BOT_MID_PASS_TARGET_POSE, True, False)
+RED_BOT_MID_PASS_TARGET_POSE = mirror_pose(BLUE_BOT_MID_PASS_TARGET_POSE, True, True)
+
+
+class AimTarget:
+    __pose: Pose2d
+    __solver: bal.HybridBallisticSolver
+
+    def __init__(self, pose: Pose3d):
+        self.__pose = pose.toPose2d()
+        self.__solver = bal.HybridBallisticSolver(
+            target_pos=bal.Vector3(pose.x, pose.y, pose.z),
+            speed_range=bal.Range(3, 10),
+            airtime_range=bal.Range(0.15, 3),
+            impact_cone_tolerance=1.57,
+            sample_count=SOLVER_SAMPLE_COUNT,
+            projectile=FUEL_PROJECTILE,
+            refinement_passes=SOLVER_REFINEMENT,
+            dt=SOLVER_DT,
+            convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
+            magnus_ratio=SOLVER_MAGNUS_RATIO
+        )
+
+    @property
+    def pose(self) -> Pose2d:
+        return self.__pose
+
+    @property
+    def solver(self) -> bal.HybridBallisticSolver:
+        return self.__solver
 
 
 class RobotMode(IntEnum):
@@ -50,90 +118,58 @@ class RobotController(Component):
     __field: RebuiltField
     __previous_side_is_top = False
 
-    __projectile: bal.Projectile
-    __hub_solver: bal.HybridBallisticSolver
-    __top_pass_solver: bal.HybridBallisticSolver
-    __bot_pass_solver: bal.HybridBallisticSolver
-    __top_mid_pass_solver: bal.HybridBallisticSolver
-    __bot_mid_pass_solver: bal.HybridBallisticSolver
+    __blue_hub_target: AimTarget
+    __blue_top_pass_target: AimTarget
+    __blue_bot_pass_target: AimTarget
+    __blue_top_mid_pass_target: AimTarget
+    __blue_bot_mid_pass_target: AimTarget
+
+    __red_hub_target: AimTarget
+    __red_top_pass_target: AimTarget
+    __red_bot_pass_target: AimTarget
+    __red_top_mid_pass_target: AimTarget
+    __red_bot_mid_pass_target: AimTarget
+
+    __turret_object: FieldObject2d
 
     def __init__(self):
         super().__init__()
 
         self.__field = RebuiltField()
 
-        self.__projectile = bal.Projectile(0.0176, 0.227, 0.0008625, magnus_coef=0.000791)
-        self.__hub_solver = bal.HybridBallisticSolver(
-            target_pos=bal.Vector3(),
-            speed_range=bal.Range(0.1, 25),
-            airtime_range=bal.Range(0.5, 3.),
-            impact_cone_tolerance=1.57,
-            sample_count=SOLVER_SAMPLE_COUNT,
-            projectile=self.__projectile,
-            refinement_passes=SOLVER_REFINEMENT,
-            dt=SOLVER_DT,
-            convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
-            magnus_ratio=SOLVER_MAGNUS_RATIO
-        )
-        self.__top_pass_solver = bal.HybridBallisticSolver(
-            target_pos=bal.Vector3(),
-            speed_range=bal.Range(0.1, 25),
-            airtime_range=bal.Range(0.5, 3.),
-            impact_cone_tolerance=1.57,
-            sample_count=SOLVER_SAMPLE_COUNT,
-            projectile=self.__projectile,
-            refinement_passes=SOLVER_REFINEMENT,
-            dt=SOLVER_DT,
-            convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
-            magnus_ratio=SOLVER_MAGNUS_RATIO
-        )
-        self.__bot_pass_solver = bal.HybridBallisticSolver(
-            target_pos=bal.Vector3(),
-            speed_range=bal.Range(0.1, 25),
-            airtime_range=bal.Range(0.5, 3.),
-            impact_cone_tolerance=1.57,
-            sample_count=SOLVER_SAMPLE_COUNT,
-            projectile=self.__projectile,
-            refinement_passes=SOLVER_REFINEMENT,
-            dt=SOLVER_DT,
-            convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
-            magnus_ratio=SOLVER_MAGNUS_RATIO
-        )
-        self.__top_mid_pass_solver = bal.HybridBallisticSolver(
-            target_pos=bal.Vector3(),
-            speed_range=bal.Range(0.1, 25),
-            airtime_range=bal.Range(0.5, 3.),
-            impact_cone_tolerance=1.57,
-            sample_count=SOLVER_SAMPLE_COUNT,
-            projectile=self.__projectile,
-            refinement_passes=SOLVER_REFINEMENT,
-            dt=SOLVER_DT,
-            convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
-            magnus_ratio=SOLVER_MAGNUS_RATIO
-        )
-        self.__bot_mid_pass_solver = bal.HybridBallisticSolver(
-            target_pos=bal.Vector3(),
-            speed_range=bal.Range(0.1, 25),
-            airtime_range=bal.Range(0.5, 3.),
-            impact_cone_tolerance=1.57,
-            sample_count=SOLVER_SAMPLE_COUNT,
-            projectile=self.__projectile,
-            refinement_passes=SOLVER_REFINEMENT,
-            dt=SOLVER_DT,
-            convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
-            magnus_ratio=SOLVER_MAGNUS_RATIO
-        )
+        self.__blue_hub_target = AimTarget(BLUE_HUB_TARGET_POSE)
+        self.__blue_top_pass_target = AimTarget(BLUE_TOP_PASS_TARGET_POSE)
+        self.__blue_bot_pass_target = AimTarget(BLUE_BOT_PASS_TARGET_POSE)
+        self.__blue_top_mid_pass_target = AimTarget(BLUE_TOP_MID_PASS_TARGET_POSE)
+        self.__blue_bot_mid_pass_target = AimTarget(BLUE_BOT_MID_PASS_TARGET_POSE)
+
+        self.__red_hub_target = AimTarget(RED_HUB_TARGET_POSE)
+        self.__red_top_pass_target = AimTarget(RED_TOP_PASS_TARGET_POSE)
+        self.__red_bot_pass_target = AimTarget(RED_BOT_PASS_TARGET_POSE)
+        self.__red_top_mid_pass_target = AimTarget(RED_TOP_MID_PASS_TARGET_POSE)
+        self.__red_bot_mid_pass_target = AimTarget(RED_BOT_MID_PASS_TARGET_POSE)
 
     def init(self):
         self.__idle_button = Input.get_input('idle')
         self.__souffleuse_button = Input.get_input('souffleuse')
         self.__climb_button = Input.get_input('climb')
 
-        #self.__pose_estimator = self.robot.get_component('Pose_Estimator')
+        self.__pose_estimator = self.robot.get_component('Pose_Estimator')
         self.__feeder = self.robot.get_component('Feeder')
         self.__indexer = self.robot.get_component('Indexer')
         self.__shooter = self.robot.get_component('Shooter')
         self.__swerve = self.robot.get_component('Swerve')
+
+        self.__swerve.set_current_heading(-self.__pose_estimator.get_current_pose().rotation().radians())
+
+        self.__turret_object = self.__pose_estimator.get_object('turret')
+
+        if Alliance.get_alliance() == Alliance.RED:
+            Input.get_input('horizontal').set_inverted(True)
+            Input.get_input('vertical').set_inverted(True)
+        else:
+            Input.get_input('horizontal').set_inverted(False)
+            Input.get_input('vertical').set_inverted(False)
 
     def update(self):
         self.__input_loop = Timer.start_coroutine_if_stopped(self.__input_loop__, self.__input_loop, CoroutineOrder.EARLY, False)
@@ -186,8 +222,8 @@ class RobotController(Component):
             yield from ()
 
             # Extend and Start Feeder
-            self.__feeder.set_expended()
-            yield from self.__feeder.wait_until_expended()
+            #self.__feeder.set_expended()
+            #yield from self.__feeder.wait_until_expended()
 
             #self.__feeder.start_feeding()
             #self.__indexer.start_indexing()
@@ -225,8 +261,8 @@ class RobotController(Component):
 
             self.__swerve.set_speed(1)
 
-            self.__feeder.set_retracted()
-            yield from self.__feeder.wait_until_retracted()
+            #self.__feeder.set_retracted()
+            #yield from self.__feeder.wait_until_retracted()
 
         def souffleuse_to_climb_transition():
             yield from ()
@@ -240,18 +276,31 @@ class RobotController(Component):
 
             self.__swerve.set_speed(1)
 
-            self.__feeder.set_retracted()
-            yield from self.__feeder.wait_until_retracted()
+            #self.__feeder.set_retracted()
+            #yield from self.__feeder.wait_until_retracted()
 
-        def try_apply_turret_target(solver: bal.HybridBallisticSolver, robot_pos, robot_vel):
-            if solver is None:
+        def try_apply_turret_target(target: AimTarget, robot_pos, robot_vel):
+            if target is None:
                 return
 
+            self.__pose_estimator.set_aim_target(target.pose)
+
+            solver = target.solver
             sol = solver.solve(robot_pos, robot_vel)
+
             if sol.valid:
-                self.__shooter.set_target_heading(sol.heading)
-                self.__shooter.set_shooter_speed(sol.speed)
-                self.__shooter.set_target_elevation(sol.elevation)
+                aim_dir = sol.aim_dir
+                heading = (math.atan2(aim_dir.y, aim_dir.x) + 0.5 * math.pi) / math.tau
+
+                elevation = (0.5 * math.pi) - sol.elevation
+                if Timer.get_frame_count() % 100:
+                    print(elevation)
+
+                self.__shooter.set_target_heading(heading)
+                SmartDashboard.putNumber('target_heading', heading)
+                SmartDashboard.putNumber('target_speed', sol.speed)
+                self.__shooter.set_shooter_speed(math.pow(sol.speed, 1.02))
+                self.__shooter.set_target_elevation(math.pow(elevation, 0.9))
 
         yield from ()
 
@@ -259,42 +308,72 @@ class RobotController(Component):
             yield False
 
             # Estimate new target
-            '''
             wpi_pose = self.__pose_estimator.get_current_pose()
             wpi_vel = self.__pose_estimator.get_current_velocity()
 
             pos = bal.Vector2(wpi_pose.x, wpi_pose.y)
-            turret_pos = self.__shooter.get_shooter_pose(pos, wpi_pose.rotation().radians() + math.pi)
-            turret_vel = bal.Vector3(wpi_vel.x, wpi_vel.y, 0.)
 
-            curr_zone = self.__field.get_zone(pos)
-            curr_solver = None
+            turret_pos = self.__shooter.get_shooter_pose(pos, wpi_pose.rotation().radians())
+            #turret_vel = bal.Vector3(wpi_vel.x, wpi_vel.y, 0.) * 0.2
+            #turret_vel = bal.Vector3(0., 0., 0.)
+
+            vel = self.__swerve.get_previous_translation().rotate(-self.__swerve.get_heading())
+            turret_vel = bal.Vector3(vel.x, vel.y, 0.) * -2.5
+
+            self.__turret_object.setPose(Pose2d(turret_pos.x, turret_pos.y, self.__shooter.current_heading_world_angle()))
+
+            alliance = Alliance.get_alliance()
+
+            curr_zone = self.__field.get_zone(pos, alliance)
+            #curr_zone = RebuiltFieldZone.SHOOT_IN_HUB
+            SmartDashboard.putString('Zone', curr_zone.name)
+            curr_target = None
             match curr_zone:
                 case RebuiltFieldZone.SHOOT_IN_HUB:
-                    curr_solver = self.__hub_solver
+                    if alliance == Alliance.RED:
+                        curr_target = self.__red_hub_target
+                    else:
+                        curr_target = self.__blue_hub_target
 
                 case RebuiltFieldZone.PASS_LEFT:
                     self.__previous_side_is_top = True
-                    curr_solver = self.__top_pass_solver
+                    if alliance == Alliance.RED:
+                        curr_target = self.__red_top_pass_target
+                    else:
+                        curr_target = self.__blue_top_pass_target
 
                 case RebuiltFieldZone.PASS_RIGHT:
                     self.__previous_side_is_top = False
-                    curr_solver = self.__bot_pass_solver
+                    if alliance == Alliance.RED:
+                        curr_target = self.__red_bot_pass_target
+                    else:
+                        curr_target = self.__blue_bot_pass_target
 
                 case RebuiltFieldZone.PASS_PREVIOUS:
                     if self.__previous_side_is_top:
-                        curr_solver = self.__top_pass_solver
+                        if alliance == Alliance.RED:
+                            curr_target = self.__red_top_pass_target
+                        else:
+                            curr_target = self.__blue_top_pass_target
                     else:
-                        curr_solver = self.__bot_pass_solver
+                        if alliance == Alliance.RED:
+                            curr_target = self.__red_bot_pass_target
+                        else:
+                            curr_target = self.__blue_bot_pass_target
 
                 case RebuiltFieldZone.PASS_CENTER_PREVIOUS:
                     if self.__previous_side_is_top:
-                        curr_solver = self.__top_mid_pass_solver
+                        if alliance == Alliance.RED:
+                            curr_target = self.__red_top_mid_pass_target
+                        else:
+                            curr_target = self.__blue_top_mid_pass_target
                     else:
-                        curr_solver = self.__bot_pass_solver
+                        if alliance == Alliance.RED:
+                            curr_target = self.__red_bot_mid_pass_target
+                        else:
+                            curr_target = self.__blue_bot_mid_pass_target
 
-            #try_apply_turret_target(curr_solver, turret_pos, turret_vel)
-            '''
+            try_apply_turret_target(curr_target, turret_pos, turret_vel)
 
             souffleuse_state = self.__souffleuse_button.get()
             self.__feeder.set_feeding(souffleuse_state)

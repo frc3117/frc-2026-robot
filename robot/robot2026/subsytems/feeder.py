@@ -16,7 +16,7 @@ class Feeder(Component):
     __winch_top_limit: DigitalInput
     __winch_motor: WPI_CANSparkFlex
 
-    __intake_motor_speed: float = 0.
+    __intake_motor_speed: float = 0.8
 
     __should_be_retracted = True
     __is_feeding: bool = False
@@ -60,7 +60,7 @@ class Feeder(Component):
             else:
                 winch_target = 1
 
-            self.__winch_motor.set(clamp(winch_target, min_winch, max_winch) * 0.6)
+            #self.__winch_motor.set(clamp(winch_target, min_winch, max_winch) * 0.6)
 
             if self.__is_feeding and self.is_expended():
                 self.__speed_motor.set(self.__intake_motor_speed)

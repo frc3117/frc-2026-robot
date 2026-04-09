@@ -4,6 +4,7 @@ import PIL.Image
 from robot2026 import RebuiltFieldZone, RebuiltField
 from frc_ballistic_solver import Vector2
 
+from frctools import Alliance
 
 def add_vec2(a: Vector2, b: Vector2):
     return Vector2(a.x + b.x, a.y + b.y)
@@ -75,7 +76,7 @@ for i in range(IMG_Y):
     for j in range(IMG_X):
         u_j = j
 
-        zone = FIELD.get_zone(pixel_to_pos(Vector2(u_j, u_i)))
+        zone = FIELD.get_zone(pixel_to_pos(Vector2(u_j, u_i)), alliance=Alliance.RED)
         color = ZONE_COLORS[zone]
         current_color = img.getpixel((j, i))
 
