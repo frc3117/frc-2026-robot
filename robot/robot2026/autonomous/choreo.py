@@ -55,7 +55,15 @@ class ChoreoSwerveSequence(AutonomousSequence):
                  reset_pose: bool = True,
                  kP_xy: float = 1.4,
                  kP_theta: float = 2.0,
-                 event_handlers: dict[str, Callable[[], None]] | None = None):
+                 event_handlers: dict[str, Callable[[], None]] | None = None,
+                 mirror_for_red: bool = True,
+                 mirror_x: bool = True,
+                 mirror_y: bool = False,
+                 mirror_omega: bool = True,
+                 vmax: float | None = None,
+                 omega_max: float | None = None,
+                 min_omega_norm: float = 1.5,
+                 max_omega_correction: float = 1.0):
         super().__init__()
 
         self._traj_name = traj_name if traj_name.endswith('.traj') else f'{traj_name}.traj'
@@ -63,6 +71,17 @@ class ChoreoSwerveSequence(AutonomousSequence):
 
         self._kP_xy = kP_xy
         self._kP_theta = kP_theta
+        self._mirror_for_red = mirror_for_red
+        self._mirror_x = mirror_x
+        self._mirror_y = mirror_y
+        self._mirror_omega = mirror_omega
+
+        self._user_vmax = None if vmax is None else float(vmax)
+        self._user_omega_max = None if omega_max is None else float(omega_max)
+
+        self._min_omega_norm = float(min_omega_norm)
+        self._max_omega_correction = float(max_omega_correction)
+
         self._event_handlers: dict[str, Callable[[], None]] = {}
 
         self._external_event_handlers = event_handlers or {}
@@ -70,6 +89,7 @@ class ChoreoSwerveSequence(AutonomousSequence):
         self._samples: list[_ChoreoSample] = []
         self._events: list[_ChoreoEvent] = []
         self._duration = 0.0
+        self._is_mirrored = False
 
         self._max_vx = max_vxy
         self._max_vy = max_vxy
@@ -103,6 +123,13 @@ class ChoreoSwerveSequence(AutonomousSequence):
         SmartDashboard.putString('Choreo/Trajectory', self._traj_name)
         SmartDashboard.putBoolean('Choreo/Active', True)
         SmartDashboard.putNumber('Choreo/Duration', self._duration)
+        SmartDashboard.putBoolean('Choreo/Mirrored', self._is_mirrored)
+        SmartDashboard.putBoolean('Choreo/MirrorX', self._mirror_x)
+        SmartDashboard.putBoolean('Choreo/MirrorY', self._mirror_y)
+        SmartDashboard.putBoolean('Choreo/MirrorOmega', self._mirror_omega)
+        SmartDashboard.putNumber('Choreo/MaxVNorm', self._max_vx)
+        SmartDashboard.putNumber('Choreo/MaxOmegaNorm', self._max_omega)
+        SmartDashboard.putNumber('Choreo/MaxOmegaCorrection', self._max_omega_correction)
         SmartDashboard.putString('Choreo/LastEvent', '')
 
         if self._reset_pose and len(self._samples) > 0 and self._pose_estimator is not None:
@@ -154,7 +181,9 @@ class ChoreoSwerveSequence(AutonomousSequence):
 
                 vx_cmd += self._kP_xy * ex
                 vy_cmd += self._kP_xy * ey
-                omega_cmd += self._kP_theta * etheta
+                omega_cmd += self._clamp(self._kP_theta * etheta,
+                                         -self._max_omega_correction,
+                                         self._max_omega_correction)
 
             if self._ref_object is not None:
                 self._ref_object.setPose(Pose2d(s.x, s.y, Rotation2d(s.heading)))
@@ -244,6 +273,11 @@ class ChoreoSwerveSequence(AutonomousSequence):
             for s in raw_samples
         ]
 
+        field_length, field_width = self._extract_field_size(data)
+        self._is_mirrored = self._mirror_for_red and Alliance.get_alliance() == Alliance.RED and (self._mirror_x or self._mirror_y)
+        if self._is_mirrored:
+            self._samples = [self._mirror_sample_for_red(s, field_length, field_width) for s in self._samples]
+
         self._duration = self._samples[-1].t if len(self._samples) > 0 else 0.0
         #self._max_vx = max(1e-6, max(abs(s.vx) for s in self._samples))
         #self._max_vy = max(1e-6, max(abs(s.vy) for s in self._samples))
@@ -285,6 +319,54 @@ class ChoreoSwerveSequence(AutonomousSequence):
             + ', '.join(str(p) for p in candidates)
         )
 
+    def _extract_field_size(self, traj_data: dict) -> tuple[float, float]:
+        # Defaults for FRC field units used by Choreo trajectories (meters)
+        field_length = 16.541
+        field_width = 8.0692
+
+        constraints = traj_data.get('snapshot', {}).get('constraints', [])
+        for c in constraints:
+            c_data = c.get('data', {}) or {}
+            if c_data.get('type') != 'KeepInRectangle':
+                continue
+
+            props = c_data.get('props', {}) or {}
+            try:
+                field_length = float(props.get('w', field_length))
+                field_width = float(props.get('h', field_width))
+                break
+            except Exception:
+                pass
+
+        return field_length, field_width
+
+    def _mirror_sample_for_red(self, s: _ChoreoSample, field_length: float, field_width: float) -> _ChoreoSample:
+        x = (field_length - s.x) if self._mirror_x else s.x
+        y = (field_width - s.y) if self._mirror_y else s.y
+
+        vx = -s.vx if self._mirror_x else s.vx
+        vy = -s.vy if self._mirror_y else s.vy
+
+        heading = s.heading
+        if self._mirror_x and self._mirror_y:
+            heading = self._wrap_angle(s.heading + math.pi)
+        elif self._mirror_x:
+            heading = self._wrap_angle(math.pi - s.heading)
+        elif self._mirror_y:
+            heading = self._wrap_angle(-s.heading)
+
+        omega = -s.omega if self._mirror_omega else s.omega
+
+        return _ChoreoSample(
+            t=s.t,
+            vx=vx,
+            vy=vy,
+            omega=omega,
+            x=x,
+            y=y,
+            heading=heading,
+        )
+
     def _sample_at(self, t: float) -> _ChoreoSample:
         if t <= self._samples[0].t:
             return self._samples[0]
@@ -319,12 +401,18 @@ class ChoreoSwerveSequence(AutonomousSequence):
             omega=self._lerp(a.omega, b.omega, k),
             x=self._lerp(a.x, b.x, k),
             y=self._lerp(a.y, b.y, k),
-            heading=self._lerp(a.heading, b.heading, k),
+            heading=self._lerp_angle(a.heading, b.heading, k),
         )
 
     @staticmethod
     def _lerp(a: float, b: float, t: float) -> float:
         return a + (b - a) * t
+
+    @staticmethod
+    def _lerp_angle(a: float, b: float, t: float) -> float:
+        # Interpolate using shortest angular distance to avoid -pi/+pi jumps.
+        d = math.atan2(math.sin(b - a), math.cos(b - a))
+        return math.atan2(math.sin(a + d * t), math.cos(a + d * t))
 
     @staticmethod
     def _clamp(v: float, lo: float = -1.0, hi: float = 1.0) -> float:
@@ -333,3 +421,7 @@ class ChoreoSwerveSequence(AutonomousSequence):
     @staticmethod
     def _angle_diff(target: float, current: float) -> float:
         return math.atan2(math.sin(target - current), math.cos(target - current))
+
+    @staticmethod
+    def _wrap_angle(a: float) -> float:
+        return math.atan2(math.sin(a), math.cos(a))

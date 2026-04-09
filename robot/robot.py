@@ -79,7 +79,7 @@ class Team3117ChoreoAuto(ChoreoSwerveSequence):
                  reset_pose: bool = True,
                  kP_xy: float = 1.4,
                  kP_theta: float = 2.0):
-        super().__init__(traj_name, 4.434, 11.29, reset_pose, kP_xy, kP_theta)
+        super().__init__(traj_name, 4.434, 11.29, reset_pose, kP_xy, kP_theta, mirror_x=True, mirror_y=True, mirror_omega=False)
 
     def on_start(self):
         super().on_start()
