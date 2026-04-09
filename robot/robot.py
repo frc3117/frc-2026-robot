@@ -23,6 +23,7 @@ from robot2026.subsytems import (Climber,
                                  Shooter,
                                  Indexer,
                                  RobotController)
+from robot2026.autonomous import ChoreoSwerveSequence, choreo_event
 
 
 
@@ -64,6 +65,57 @@ class TestIMU:
 
     def getAngle(self) -> float:
         return self.__imu.getAngle()
+
+
+class Team3117ChoreoAuto(ChoreoSwerveSequence):
+    __should_souffleuse: bool
+
+    __feed_input: Input
+
+    __controller: RobotController
+
+    def __init__(self,
+                 traj_name: str,
+                 reset_pose: bool = True,
+                 kP_xy: float = 1.4,
+                 kP_theta: float = 2.0):
+        super().__init__(traj_name, reset_pose, kP_xy, kP_theta)
+
+    def on_start(self):
+        super().on_start()
+
+        self.__should_souffleuse = False
+
+        self.__feed_input = Input.get_input('souffleuse')
+
+        self.__controller = self.get_component('Controller')
+
+    def on_end(self):
+        self.__should_souffleuse = False
+
+    @choreo_event("Extend-Feeder")
+    def extend_feeder(self):
+        self.__feed_input.override(True)
+
+        print('Extending Feeder!')
+
+    @choreo_event("Start-Souffleuse")
+    def start_souffleuse(self):
+        self.__should_souffleuse = True
+
+        print('Start Souffleuse')
+
+    @choreo_event("Stop-Souffleuse")
+    def stop_souffleuse(self):
+        self.__should_souffleuse = False
+
+        print('Stop Souffleuse')
+
+    def before_choreo_loop(self):
+        pass
+
+    def after_choreo_loop(self):
+        self.__feed_input.override(self.__should_souffleuse)
 
 
 class Robot(RobotBase):
@@ -281,6 +333,10 @@ class Robot(RobotBase):
 
         self.register_inputs()
         self.register_subsystems()
+
+        # Choreo autos (decorator-driven events)
+        self.add_auto('choreo/soufleuse_simple', Team3117ChoreoAuto('soufleuse_simple'), default=True)
+        self.add_auto('choreo/soufleuse_plus_shoot', Team3117ChoreoAuto('soufleuse_plus_shoot'))
 
     def robotPeriodic(self):
         # ShiftUtils.refresh_shift()
