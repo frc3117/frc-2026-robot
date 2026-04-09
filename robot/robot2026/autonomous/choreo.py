@@ -57,7 +57,11 @@ class ChoreoSwerveSequence(AutonomousSequence):
                  mirror_for_red: bool = True,
                  mirror_x: bool = True,
                  mirror_y: bool = False,
-                 mirror_omega: bool = True):
+                 mirror_omega: bool = True,
+                 vmax: float | None = None,
+                 omega_max: float | None = None,
+                 min_omega_norm: float = 1.5,
+                 max_omega_correction: float = 1.0):
         super().__init__()
 
         self._traj_name = traj_name if traj_name.endswith('.traj') else f'{traj_name}.traj'
@@ -69,6 +73,13 @@ class ChoreoSwerveSequence(AutonomousSequence):
         self._mirror_x = mirror_x
         self._mirror_y = mirror_y
         self._mirror_omega = mirror_omega
+
+        self._user_vmax = None if vmax is None else float(vmax)
+        self._user_omega_max = None if omega_max is None else float(omega_max)
+
+        self._min_omega_norm = float(min_omega_norm)
+        self._max_omega_correction = float(max_omega_correction)
+
         self._event_handlers: dict[str, Callable[[], None]] = {}
 
         self._external_event_handlers = event_handlers or {}
@@ -114,6 +125,9 @@ class ChoreoSwerveSequence(AutonomousSequence):
         SmartDashboard.putBoolean('Choreo/MirrorX', self._mirror_x)
         SmartDashboard.putBoolean('Choreo/MirrorY', self._mirror_y)
         SmartDashboard.putBoolean('Choreo/MirrorOmega', self._mirror_omega)
+        SmartDashboard.putNumber('Choreo/MaxVNorm', self._max_vx)
+        SmartDashboard.putNumber('Choreo/MaxOmegaNorm', self._max_omega)
+        SmartDashboard.putNumber('Choreo/MaxOmegaCorrection', self._max_omega_correction)
         SmartDashboard.putString('Choreo/LastEvent', '')
 
         if self._reset_pose and len(self._samples) > 0 and self._pose_estimator is not None:
@@ -165,7 +179,9 @@ class ChoreoSwerveSequence(AutonomousSequence):
 
                 vx_cmd += self._kP_xy * ex
                 vy_cmd += self._kP_xy * ey
-                omega_cmd += self._kP_theta * etheta
+                omega_cmd += self._clamp(self._kP_theta * etheta,
+                                         -self._max_omega_correction,
+                                         self._max_omega_correction)
 
             if self._ref_object is not None:
                 self._ref_object.setPose(Pose2d(s.x, s.y, Rotation2d(s.heading)))
@@ -261,9 +277,22 @@ class ChoreoSwerveSequence(AutonomousSequence):
             self._samples = [self._mirror_sample_for_red(s, field_length, field_width) for s in self._samples]
 
         self._duration = self._samples[-1].t if len(self._samples) > 0 else 0.0
-        self._max_vx = max(1e-6, max(abs(s.vx) for s in self._samples))
-        self._max_vy = max(1e-6, max(abs(s.vy) for s in self._samples))
-        self._max_omega = max(1e-6, max(abs(s.omega) for s in self._samples))
+        auto_max_vx = max(1e-6, max(abs(s.vx) for s in self._samples))
+        auto_max_vy = max(1e-6, max(abs(s.vy) for s in self._samples))
+        auto_max_omega = max(self._min_omega_norm, max(abs(s.omega) for s in self._samples))
+
+        if self._user_vmax is not None:
+            user_v = max(1e-6, abs(self._user_vmax))
+            self._max_vx = user_v
+            self._max_vy = user_v
+        else:
+            self._max_vx = auto_max_vx
+            self._max_vy = auto_max_vy
+
+        if self._user_omega_max is not None:
+            self._max_omega = max(1e-6, abs(self._user_omega_max))
+        else:
+            self._max_omega = auto_max_omega
 
         self._events = []
         for e in data.get('events', []):
