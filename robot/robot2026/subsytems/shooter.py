@@ -292,9 +292,13 @@ class Shooter(Component):
         self.__crt_heading_encoder_a.set_angle01(self.__heading_encoder_a.get())
         self.__crt_heading_encoder_b.set_angle01(self.__heading_encoder_b.get())
 
-        self.__current_heading_raw = self.__crt_heading.get_turn(max_turn=2.,
-                                                                 previous_turn=self.__current_heading_raw,
-                                                                 proximity_weight=-0.01)
+        try:
+            self.__current_heading_raw = self.__crt_heading.get_turn(max_turn=2.,
+                                                                     previous_turn=self.__current_heading_raw,
+                                                                     proximity_weight=-0.01)
+        except TypeError:
+            # Compatibility path for older frc_ballistic_solver builds
+            self.__current_heading_raw = self.__crt_heading.get_turn(max_turn=2.)
 
         instant_heading = repeat(self.__current_heading_raw - 0.61, 2.)
         if with_limiter:

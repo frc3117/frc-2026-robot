@@ -9,7 +9,7 @@ import frc_ballistic_solver as ball
 from photonlibpy import PhotonPoseEstimator, PhotonCamera
 
 
-from wpilib import Field2d, FieldObject2d, SmartDashboard
+from wpilib import Field2d, FieldObject2d, SmartDashboard, RobotBase
 from wpimath.geometry import Translation2d, Rotation3d, Pose2d, Rotation2d, Transform3d, Transform2d, Pose3d
 from wpimath.kinematics import SwerveDrive4Kinematics, SwerveModulePosition
 from wpimath.estimator import SwerveDrive4PoseEstimator
@@ -48,7 +48,16 @@ class PoseEstimationCamera:
         self.__obj = field.getObject(self.__camera.getName())
 
     def apply_vision_pose_estimate(self, estimator):
-        for result in self.__camera.getAllUnreadResults():
+        if RobotBase.isSimulation():
+            return
+
+        try:
+            results = self.__camera.getAllUnreadResults()
+        except Exception:
+            # In sim/offline runs, PhotonVision may not be connected.
+            return
+
+        for result in results:
             estimated_pose = self.__pose_estimator.estimateCoprocMultiTagPose(result)
             if estimated_pose is None:
                 estimated_pose = self.__pose_estimator.estimateLowestAmbiguityPose(result)

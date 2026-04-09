@@ -23,6 +23,7 @@ from robot2026.subsytems import (Climber,
                                  Shooter,
                                  Indexer,
                                  RobotController)
+from robot2026.autonomous import ChoreoSwerveSequence, choreo_event
 
 
 
@@ -64,6 +65,44 @@ class TestIMU:
 
     def getAngle(self) -> float:
         return self.__imu.getAngle()
+
+
+class Team3117ChoreoAuto(ChoreoSwerveSequence):
+    @choreo_event('StartFeeding')
+    def event_start_feeding(self):
+        self.get_component('Feeder').set_feeding(True)
+
+    @choreo_event('StopFeeding')
+    def event_stop_feeding(self):
+        self.get_component('Feeder').set_feeding(False)
+
+    @choreo_event('StartIndexing')
+    def event_start_indexing(self):
+        self.get_component('Indexer').set_indexing(True)
+
+    @choreo_event('StopIndexing')
+    def event_stop_indexing(self):
+        self.get_component('Indexer').set_indexing(False)
+
+    @choreo_event('StartShooting')
+    def event_start_shooting(self):
+        self.get_component('Shooter').set_shooting(True)
+
+    @choreo_event('StopShooting')
+    def event_stop_shooting(self):
+        self.get_component('Shooter').set_shooting(False)
+
+    @choreo_event('StartAll')
+    def event_start_all(self):
+        self.get_component('Feeder').set_feeding(True)
+        self.get_component('Indexer').set_indexing(True)
+        self.get_component('Shooter').set_shooting(True)
+
+    @choreo_event('StopAll')
+    def event_stop_all(self):
+        self.get_component('Feeder').set_feeding(False)
+        self.get_component('Indexer').set_indexing(False)
+        self.get_component('Shooter').set_shooting(False)
 
 
 class Robot(RobotBase):
@@ -281,6 +320,10 @@ class Robot(RobotBase):
 
         self.register_inputs()
         self.register_subsystems()
+
+        # Choreo autos (decorator-driven events)
+        self.add_auto('choreo/soufleuse_simple', Team3117ChoreoAuto('soufleuse_simple'), default=True)
+        self.add_auto('choreo/soufleuse_plus_shoot', Team3117ChoreoAuto('soufleuse_plus_shoot'))
 
     def robotPeriodic(self):
         # ShiftUtils.refresh_shift()

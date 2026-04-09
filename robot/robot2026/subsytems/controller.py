@@ -69,18 +69,32 @@ class AimTarget:
 
     def __init__(self, pose: Pose3d):
         self.__pose = pose.toPose2d()
-        self.__solver = bal.HybridBallisticSolver(
-            target_pos=bal.Vector3(pose.x, pose.y, pose.z),
-            speed_range=bal.Range(3, 10),
-            airtime_range=bal.Range(0.15, 3),
-            impact_cone_tolerance=1.57,
-            sample_count=SOLVER_SAMPLE_COUNT,
-            projectile=FUEL_PROJECTILE,
-            refinement_passes=SOLVER_REFINEMENT,
-            dt=SOLVER_DT,
-            convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
-            magnus_ratio=SOLVER_MAGNUS_RATIO
-        )
+        try:
+            self.__solver = bal.HybridBallisticSolver(
+                target_pos=bal.Vector3(pose.x, pose.y, pose.z),
+                speed_range=bal.Range(3, 10),
+                airtime_range=bal.Range(0.15, 3),
+                impact_cone_tolerance=1.57,
+                sample_count=SOLVER_SAMPLE_COUNT,
+                projectile=FUEL_PROJECTILE,
+                refinement_passes=SOLVER_REFINEMENT,
+                dt=SOLVER_DT,
+                convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
+                magnus_ratio=SOLVER_MAGNUS_RATIO
+            )
+        except TypeError:
+            # Compatibility path for older frc_ballistic_solver builds
+            self.__solver = bal.HybridBallisticSolver(
+                target_pos=bal.Vector3(pose.x, pose.y, pose.z),
+                speed_range=bal.Range(3, 10),
+                airtime_range=bal.Range(0.15, 3),
+                impact_cone_tolerance=1.57,
+                sample_count=SOLVER_SAMPLE_COUNT,
+                projectile=FUEL_PROJECTILE,
+                refinement_passes=SOLVER_REFINEMENT,
+                dt=SOLVER_DT,
+                convergence_threshold=SOLVER_CONVERGENCE_THRESHOLD,
+            )
 
     @property
     def pose(self) -> Pose2d:
