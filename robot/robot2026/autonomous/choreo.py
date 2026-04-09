@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Any
 
-from frctools import RobotBase, Timer
+from frctools import RobotBase, Timer, Alliance
 from frctools.autonomous import AutonomousSequence
 from frctools.drivetrain import SwerveDrive
 
@@ -125,6 +125,8 @@ class ChoreoSwerveSequence(AutonomousSequence):
 
         start = Timer.get_current_time()
         while True:
+            self.before_choreo_loop()
+
             t = Timer.get_elapsed(start)
             if t >= self._duration:
                 break
@@ -168,10 +170,22 @@ class ChoreoSwerveSequence(AutonomousSequence):
             y_cmd = self._clamp(vy_cmd / self._max_vy)
             r_cmd = self._clamp(omega_cmd / self._max_omega)
 
+            if Alliance.get_alliance() == Alliance.RED:
+                x_cmd *= -1
+                y_cmd *= -1
+
             self._swerve.override_axes(horizontal=x_cmd, vertical=y_cmd, rotation=r_cmd)
+
+            self.after_choreo_loop()
             yield None
 
         self._swerve.override_axes(0.0, 0.0, 0.0)
+
+    def before_choreo_loop(self):
+        pass
+
+    def after_choreo_loop(self):
+        pass
 
     def _process_events(self, t: float):
         for event in self._events:

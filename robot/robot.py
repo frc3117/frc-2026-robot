@@ -68,41 +68,54 @@ class TestIMU:
 
 
 class Team3117ChoreoAuto(ChoreoSwerveSequence):
-    @choreo_event('StartFeeding')
-    def event_start_feeding(self):
-        self.get_component('Feeder').set_feeding(True)
+    __should_souffleuse: bool
 
-    @choreo_event('StopFeeding')
-    def event_stop_feeding(self):
-        self.get_component('Feeder').set_feeding(False)
+    __feed_input: Input
 
-    @choreo_event('StartIndexing')
-    def event_start_indexing(self):
-        self.get_component('Indexer').set_indexing(True)
+    __controller: RobotController
 
-    @choreo_event('StopIndexing')
-    def event_stop_indexing(self):
-        self.get_component('Indexer').set_indexing(False)
+    def __init__(self,
+                 traj_name: str,
+                 reset_pose: bool = True,
+                 kP_xy: float = 1.4,
+                 kP_theta: float = 2.0):
+        super().__init__(traj_name, reset_pose, kP_xy, kP_theta)
 
-    @choreo_event('StartShooting')
-    def event_start_shooting(self):
-        self.get_component('Shooter').set_shooting(True)
+    def on_start(self):
+        super().on_start()
 
-    @choreo_event('StopShooting')
-    def event_stop_shooting(self):
-        self.get_component('Shooter').set_shooting(False)
+        self.__should_souffleuse = False
 
-    @choreo_event('StartAll')
-    def event_start_all(self):
-        self.get_component('Feeder').set_feeding(True)
-        self.get_component('Indexer').set_indexing(True)
-        self.get_component('Shooter').set_shooting(True)
+        self.__feed_input = Input.get_input('souffleuse')
 
-    @choreo_event('StopAll')
-    def event_stop_all(self):
-        self.get_component('Feeder').set_feeding(False)
-        self.get_component('Indexer').set_indexing(False)
-        self.get_component('Shooter').set_shooting(False)
+        self.__controller = self.get_component('Controller')
+
+    def on_end(self):
+        self.__should_souffleuse = False
+
+    @choreo_event("Extend-Feeder")
+    def extend_feeder(self):
+        self.__feed_input.override(True)
+
+        print('Extending Feeder!')
+
+    @choreo_event("Start-Souffleuse")
+    def start_souffleuse(self):
+        self.__should_souffleuse = True
+
+        print('Start Souffleuse')
+
+    @choreo_event("Stop-Souffleuse")
+    def stop_souffleuse(self):
+        self.__should_souffleuse = False
+
+        print('Stop Souffleuse')
+
+    def before_choreo_loop(self):
+        pass
+
+    def after_choreo_loop(self):
+        self.__feed_input.override(self.__should_souffleuse)
 
 
 class Robot(RobotBase):
