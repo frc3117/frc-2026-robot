@@ -1,7 +1,7 @@
-from magicbot import Component
+from frc.tools import Component
 import asyncio
 
-class RobotController(Component):
+class ManuelController(Component):
     # --- Subsystem References ---
     # These must match the variable names in your robot.py
     __feeder: object
@@ -31,7 +31,7 @@ class RobotController(Component):
             
             yield
 
-    def execute(self):
+    def update(self):
         """Main control logic loop executed by MagicBot."""
         
         if self.__is_manuel_mode:
